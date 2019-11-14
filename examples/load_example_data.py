@@ -3,8 +3,8 @@ import os
 from neurochat.nc_data import NData
 
 
-def load_data():
-    dir = r'C:\Users\smartin5\recording_example'
+def load_axona_data():
+    dir = r'C:\Users\smartin5\Recordings\recording_example'
     spike_file = os.path.join(dir, "010416b-LS3-50Hz10V5ms.2")
     pos_file = os.path.join(dir, "010416b-LS3-50Hz10V5ms_2.txt")
     lfp_file = os.path.join(dir, "010416b-LS3-50Hz10V5ms.eeg")
@@ -27,7 +27,7 @@ def load_h5_data():
     lfp_file = "/processing/Neural Continuous/LFP/eeg"
     unit_no = 3
 
-    def m_file(x): return os.path.join(data_dir, main_file + x)
+    def m_file(x): return os.path.join(data_dir, main_file + "+" + x)
     ndata = NData()
     ndata.set_data_format(data_format='NWB')
     ndata.set_spatial_file(m_file(pos_file))
@@ -37,6 +37,13 @@ def load_h5_data():
     ndata.set_unit_no(unit_no)
 
     return ndata
+
+
+def load_data(load_type="Axona"):
+    if load_type == "Axona":
+        return load_axona_data()
+    elif load_type == "h5":
+        return load_h5_data()
 
 
 if __name__ == "__main__":

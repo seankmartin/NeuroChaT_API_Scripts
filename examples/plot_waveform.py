@@ -6,7 +6,7 @@ import neurochat.nc_plot as nc_plot
 
 
 def main():
-    ndata = load_data()
+    ndata = load_data("h5")
     results = ndata.wave_property()
     nc_plot.wave_property(results)
     plt.savefig("out.png")
