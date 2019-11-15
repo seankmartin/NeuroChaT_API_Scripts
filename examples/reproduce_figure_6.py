@@ -28,27 +28,27 @@ def load_h5_data():
 
 def main():
     ndata = load_h5_data()
-    # graph_data = ndata.place()
-    # fig = nc_plot.loc_firing(
-    #     graph_data, style="digitized", colormap="default")
-    # fig.savefig("Figure6a_place.png")
+    graph_data = ndata.place()
+    fig = nc_plot.loc_firing(
+        graph_data, style="digitized", colormap="default")
+    fig.savefig("Figure6a_place.png")
 
-    # graph_data = ndata.hd_rate()
-    # figs = nc_plot.hd_firing(graph_data)
-    # figs[1].savefig("Figure6a_hd.png")
+    graph_data = ndata.hd_rate()
+    figs = nc_plot.hd_firing(graph_data)
+    figs[1].savefig("Figure6a_hd.png")
 
-    # graph_data = ndata.multiple_regression()
-    # fig = nc_plot.multiple_regression(graph_data)
-    # fig.savefig("Figure6b.png")
+    graph_data = ndata.multiple_regression()
+    fig = nc_plot.multiple_regression(graph_data)
+    fig.savefig("Figure6b.png")
 
     graph_data = ndata.loc_shuffle(bins=50)
     fig = nc_plot.loc_shuffle(graph_data)
     fig.savefig("Figure6c.png")
 
-    # graph_data = ndata.loc_shift(shift_ind=np.arange(-10, 21))
-    # figs = nc_plot.loc_time_shift(
-    #     graph_data)
-    # figs[0].savefig("Figure6d.png")
+    graph_data = ndata.loc_shift(shift_ind=np.arange(-10, 21))
+    figs = nc_plot.loc_time_shift(
+        graph_data)
+    figs[0].savefig("Figure6d.png")
 
 
 if __name__ == "__main__":
