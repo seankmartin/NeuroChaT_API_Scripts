@@ -1,4 +1,7 @@
-"""Use this file to reproduce Figure 6 in NeuroChaT paper"""
+"""
+Use this file to reproduce Figure 6 in the NeuroChaT paper
+Please change line 13 to reflect the directory you saved 040512_1.hdf5 in
+"""
 import os
 import numpy as np
 from neurochat.nc_data import NData
