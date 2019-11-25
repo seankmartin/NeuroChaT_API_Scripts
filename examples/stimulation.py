@@ -47,8 +47,9 @@ def main(dir, bin_size, bin_bound):
             if last_stm_name != stm_name:
                 event.load(stm_name, 'Axona')
                 last_stm_name = stm_name
-            graph_data = data.psth(
-                event.get_timestamp(), bins=bin_size, bound=bin_bound)
+
+            graph_data = event.psth(
+                data.spike, bins=bin_size, bound=bin_bound)
             spike_count = data.get_unit_spikes_count()
             result_dict["Num_Spikes"] = spike_count
 
