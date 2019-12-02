@@ -387,6 +387,7 @@ def main(args, config):
     regex_filter = None if regex_filter == "None" else regex_filter
     analysis_flags = json.loads(config.get("Setup", "analysis_flags"))
     tetrode_list = json.loads(config.get("Setup", "tetrode_list"))
+    should_filter = config.getboolean("Setup", "should_filter")
     seaborn_style = config.getboolean("Plot", "seaborn_style")
     plot_order = json.loads(config.get("Plot", "plot_order"))
     fixed_color = config.get("Plot", "path_color")
@@ -398,6 +399,7 @@ def main(args, config):
     dot_size = config.get("Plot", "dot_size")
     dot_size = None if dot_size == "None" else int(dot_size)
     summary_dpi = int(config.get("Plot", "summary_dpi"))
+    hd_predict = config.getboolean("Plot", "hd_predict")
     output_format = config.get("Output", "output_format")
     save_bin_data = config.getboolean("Output", "save_bin_data")
     output_spaces = config.getboolean("Output", "output_spaces")
@@ -432,12 +434,13 @@ def main(args, config):
     if analysis_flags[0]:
         place_cell_summary(
             container, dpi=summary_dpi, out_dirname=plot_outname,
-            filter_place_cells=False, filter_low_freq=False,
+            filter_place_cells=should_filter, filter_low_freq=should_filter,
             opt_end=opt_end, base_dir=in_dir,
             output_format=output_format, isi_bound=isi_bound,
             isi_bin_length=isi_bin_length, output=plot_order,
             save_data=save_bin_data, fixed_color=fixed_color,
-            point_size=dot_size, color_isi=s_color, burst_thresh=6)
+            point_size=dot_size, color_isi=s_color, burst_thresh=6,
+            hd_predict=hd_predict)
         plt.close("all")
 
     # Do numerical analysis of bursting
