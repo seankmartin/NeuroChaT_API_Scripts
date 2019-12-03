@@ -17,7 +17,7 @@ def main():
 
     root = os.path.dirname(os.path.realpath(__file__))
     name = "Figure8Reproduce.ncfg"
-    config_loc = os.path.join(root, "Configs", name)
+    config_loc = os.path.join(root, name)
     config.set_config_file(config_loc)
     config.load_config()
 
