@@ -46,3 +46,4 @@ def parse_args(verbose=True):
     if verbose:
         if len(sys.argv) > 1:
             print("Command line arguments", args)
+    return args
