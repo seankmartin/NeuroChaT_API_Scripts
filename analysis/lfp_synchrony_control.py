@@ -1,10 +1,11 @@
 import os
 import json
 
-from api_utils import read_cfg, parse_args, setup_logging
+from api_utils import read_cfg, parse_args, setup_logging, make_dir_if_not_exists
 from general_lfp import get_all_lfp, plot_lfp
 
-from neurochat.nc_utils import get_all_files_in_dir, make_dir_if_not_exists
+from neurochat.nc_utils import get_all_files_in_dir
+from lfp_odict import LfpODict
 
 
 def main(cfg, args, **kwargs):
@@ -22,18 +23,21 @@ def main(cfg, args, **kwargs):
     if len(filenames) == 0:
         print("No set files found for analysis!")
         exit(-1)
+
     for fname in filenames:
         # TODO get the correct channels here based on the filename
         channels = [1, 2, 16, 17, 31, 32]
-        lfp_odict = get_all_lfp(fname, channels=channels)
+        # TODO can setup filtering here
+        lfp_odict = LfpODict(fname, channels=channels)
         o_dir = os.path.join(in_dir, out_dir, os.path.basename(fname))
 
+        # Plot signal on each loaded channel
         if analysis_flags[0]:
             r = json.loads(config.get("LFP", "plot_time"))
             seg_len = float(config.get("LFP", "plot_seg_length"))
-            make_dir_if_not_exists(os.path.join(o_dir, "dummy.txt"))
+            make_dir_if_not_exists(o_dir)
             plot_lfp(
-                o_dir, lfp_odict, in_range=r, segment_length=seg_len)
+                o_dir, lfp_odict.lfp_odict, in_range=r, segment_length=seg_len)
 
 
 if __name__ == "__main__":

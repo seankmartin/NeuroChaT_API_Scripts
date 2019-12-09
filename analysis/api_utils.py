@@ -51,9 +51,14 @@ def parse_args(verbose=True):
     return args
 
 
-def make_dir_if_not_exists(fname):
+def make_path_if_not_exists(fname):
     """Makes directory structure for given fname"""
     os.makedirs(os.path.dirname(fname), exist_ok=True)
+
+
+def make_dir_if_not_exists(dirname):
+    """Makes directory structure for given fname"""
+    os.makedirs(dirname, exist_ok=True)
 
 
 def save_mixed_dict_to_csv(in_dict, out_dir, out_name="results.csv"):
