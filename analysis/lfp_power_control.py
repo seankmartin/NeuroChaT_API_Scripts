@@ -3,12 +3,12 @@ import argparse
 from collections import OrderedDict
 import numpy as np
 
-from lfp_power import plot_sample_of_signal
-from lfp_power import lfp_entropy
-from lfp_power import lfp_distribution
-from lfp_power import lfp_theta_dist
-from lfp_power import raw_lfp_power
-from lfp_power import single_main
+from lfp_plot import plot_sample_of_signal
+from lfp_signal_measures import lfp_entropy
+from lfp_signal_measures import lfp_distribution_measures
+from lfp_signal_measures import lfp_theta_dist
+from lfp_signal_measures import raw_lfp_power
+from lfp_signal_measures import single_main
 from api_utils import save_mixed_dict_to_csv
 
 
@@ -23,51 +23,6 @@ def plot_sample():
     load_loc = os.path.join(root, name)
     plot_sample_of_signal(
         load_loc, out_dir="nc_results", name="Ser", offseta=400)
-
-
-def single_main_cfg():
-    """Main control through cmd options."""
-    parser = argparse.ArgumentParser(description="Parse a program location")
-    parser.add_argument(
-        "--nofilt", "-nf", action="store_true",
-        help="Should not pre filter lfp before power and spectral analysis")
-    parser.add_argument(
-        "--max_freq", "-mf", type=int, default=40,
-        help="The maximum lfp frequency to consider"
-    )
-    parser.add_argument(
-        "--loc", type=str, help="Lfp file location"
-    )
-    parser.add_argument(
-        "--eeg_num", "-en", type=str, help="EEG number", default="1"
-    )
-    parser.add_argument(
-        "--splits", "-s", nargs="*", type=int, help="Splits",
-        default=[0, 600, 600, 1200, 1200, 1800]
-    )
-    parser.add_argument(
-        "--out_loc", "-o", type=str, default="nc_results",
-        help="Relative name of directory to store results in"
-    )
-    parser.add_argument(
-        "--every_min", "-em", action="store_true",
-        help="Calculate lfp every minute"
-    )
-    parser.add_argument(
-        "--recording_dur", "-d", type=int, default=30,
-        help="How long in minutes the recording lasted"
-    )
-    parser.add_argument(
-        "--get_entropy", "-e", action="store_true",
-        help="Calculate entropy"
-    )
-    parser.add_argument(
-        "--g_all", "-a", action="store_true",
-        help="Get all values instead of just average"
-    )
-    parsed = parser.parse_args()
-
-    single_main(parsed)
 
 
 def main():
@@ -168,8 +123,6 @@ def main():
         t_res[0], t_res[1]]
     _results["Stats Vals"] = out_vals
     save_mixed_dict_to_csv(_results, "nc_results", "power_results.csv")
-
-    return
 
 
 if __name__ == "__main__":

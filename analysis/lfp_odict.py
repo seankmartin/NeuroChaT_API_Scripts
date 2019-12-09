@@ -1,6 +1,7 @@
 import math
 import os
 from collections import OrderedDict
+from copy import deepcopy
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -35,10 +36,16 @@ class LfpODict:
         if filt_params[0]:
             self.lfp_filt_odict = self.filter(*filt_params[1:])
 
-    def get_signals(self):
+    def get_signal(self, key=None):
+        """Return signal at key, or full dict if key is None."""
+        if key is not None:
+            return self.lfp_odict.get(key, None)
         return self.lfp_odict
 
-    def get_filt_signals(self):
+    def get_filt_signal(self, key=None):
+        """Return filtered signal at key, or full dict if key is None."""
+        if key is not None:
+            return self.lfp_filt_odict.get(key, None)
         return self.lfp_filt_odict
 
     def filter(self, lower, upper):
@@ -58,11 +65,13 @@ class LfpODict:
             exit(-1)
         lfp_filt_odict = OrderedDict()
         for key, lfp in self.lfp_odict.items():
-            fs = lfp.get_sampling_rate()
-            filtered_lfp = butter_filter(
-                lfp.get_samples(), fs, 10,
+            filt_lfp = deepcopy(lfp)
+            fs = filt_lfp.get_sampling_rate()
+            filtered_lfp_samples = butter_filter(
+                filt_lfp.get_samples(), fs, 10,
                 lower, upper, 'bandpass')
-            lfp_filt_odict[key] = filtered_lfp
+            filt_lfp._set_samples(filtered_lfp_samples)
+            lfp_filt_odict[key] = filt_lfp
         return lfp_filt_odict
 
     def _init_lfp(self, filename, channels="all"):
@@ -92,3 +101,6 @@ class LfpODict:
             lfp.load(load_loc)
             lfp_odict[str(i)] = lfp
         self.lfp_odict = lfp_odict
+
+    def __len__(self):
+        return len(self.get_signal())

@@ -5,63 +5,13 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
+from api_utils import make_dir_if_not_exists
 from neurochat.nc_lfp import NLfp
 from neurochat.nc_utils import butter_filter
 
 
-def get_all_lfp(filename, filt_params=(False, None, None), channels="all"):
-    """
-    Return an orderedDict of lfp objects, one for each channel.
-
-    Args:
-        filename (str): The basename of the file.
-            filename+".eegX" are the final loaded files
-        filt_params (tuple(bool, float, float), optional): 
-            Tuple is structured as follows.
-            (Should return filtered signal, lower_bound, upper_bound).
-            Defaults to (False, None, None).
-        channels (str or List, optional): Defaults to [1, 2, ..., 32].
-            The list of channels to load.
-
-    Returns:
-        OrderedDict if not filtering
-        or tuple(OrderedDict, OrderedDict) if filtering, where 
-        the second object is the filtered dict.
-
-    """
-    filt, lower, upper = filt_params
-    lfp_odict = OrderedDict()
-    if channels == "all":
-        channels = [i + 1 for i in range(32)]
-
-    for i in channels:
-        end = ".eeg"
-        if i != 1:
-            end = end + str(i)
-        load_loc = filename + end
-        lfp = NLfp(system="Axona")
-        lfp.load(load_loc)
-        lfp_odict[str(i)] = lfp
-
-    if filt:
-        if (lower is None) or (upper is None):
-            print("Must provide lower and upper when filtering")
-            exit(-1)
-        lfp_filt_odict = OrderedDict()
-        for key, lfp in lfp_odict.items():
-            fs = lfp.get_sampling_rate()
-            filtered_lfp = butter_filter(
-                lfp.get_samples(), fs, 10,
-                lower, upper, 'bandpass')
-            lfp_filt_odict[key] = filtered_lfp
-        return lfp_odict, lfp_filt_odict
-
-    return lfp_odict
-
-
 def plot_long_lfp(
-        lfp, out_name, lower=None, upper=None,
-        filt=True, nsamples=None, offset=0,
+        lfp, out_name, nsamples=None, offset=0,
         nsplits=3, figsize=(32, 4), ylim=(-0.4, 0.4)):
     """
     Create a figure to display a long LFP signal in nsplits rows.
@@ -69,10 +19,6 @@ def plot_long_lfp(
     Args:
         lfp (NLfp): The lfp signal to plot.
         out_name (str): The name of the output, including directory.
-        lower, upper (int, int, optional): Defaults to None, None
-            The lower and upper bands to use if filtering.
-        filt (bool, optional): Defaults to True.
-            Whether to filter the LFP signal. 
         nsamples (int, optional): Defaults to all samples.
             The number of samples to plot. 
         offset (int, optional): Defaults to 0.
@@ -82,23 +28,11 @@ def plot_long_lfp(
         ylim (tuple of float, optional): Defaults to (-0.4, 0.4)
 
     Returns:
-        NLfp: The filtered (or raw) lfp signal.
+        None
 
     """
-    fs = lfp.get_sampling_rate()
-
     if nsamples is None:
         nsamples = lfp.get_total_samples()
-
-    if filt:
-        if (lower is None) or (upper is None):
-            print("Must provide lower and upper when filtering")
-            exit(-1)
-        filtered_lfp = butter_filter(
-            lfp.get_samples(), fs, 10,
-            lower, upper, 'bandpass')
-    else:
-        filtered_lfp = lfp.get_samples()
 
     fig, axes = plt.subplots(nsplits, 1, figsize=figsize)
     for i in range(nsplits):
@@ -110,12 +44,11 @@ def plot_long_lfp(
             ax = axes[i]
         ax.plot(
             lfp.get_timestamp()[start:end],
-            filtered_lfp[start:end], color='k')
+            lfp.get_samples()[start:end], color='k')
         ax.set_ylim(ylim)
     plt.tight_layout()
     fig.savefig(out_name, dpi=400)
     plt.close(fig)
-    return filtered_lfp
 
 
 def plot_lfp(
@@ -138,6 +71,7 @@ def plot_lfp(
 
     Returns:
         None
+
     """
     if in_range is None:
         in_range = (0, max([lfp.get_duration() for lfp in lfp_odict.values()]))
@@ -165,3 +99,36 @@ def plot_lfp(
         print("Saving result to {}".format(out_name))
         fig.savefig(out_name, dpi=dpi)
         plt.close("all")
+
+
+def plot_sample_of_signal(
+        load_loc, out_dir=None, name=None, offseta=0, length=50,
+        filt_params=(False, None, None)):
+    """
+    Plot a small filtered sample of the LFP signal in the given band.
+
+    offseta and length are times
+    """
+    in_dir = os.path.dirname(load_loc)
+    lfp = NLfp()
+    lfp.load(load_loc)
+
+    if out_dir is None:
+        out_loc = "nc_signal"
+        out_dir = os.path.join(in_dir, out_loc)
+
+    if name is None:
+        name = "full_signal_filt.png"
+
+    make_dir_if_not_exists(out_dir)
+    out_name = os.path.join(out_dir, name)
+    fs = lfp.get_sampling_rate()
+    filt, lower, upper = filt_params
+    lfp_samples = lfp.get_samples()
+    if filt:
+        lfp_samples = butter_filter(
+            lfp_samples, fs, 10, lower, upper, 'bandpass')
+    plot_long_lfp(
+        lfp_samples, out_name, nsplits=1, ylim=(-0.3, 0.3), figsize=(20, 8),
+        offset=lfp.get_sampling_rate() * offseta,
+        nsamples=lfp.get_sampling_rate() * length)
