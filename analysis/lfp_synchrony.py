@@ -22,7 +22,6 @@ def main(cfg, args, **kwargs):
     if len(filenames) == 0:
         print("No set files found for analysis!")
         exit(-1)
-    exit(-1)
     for fname in filenames:
         # TODO get the correct channels here based on the filename
         channels = [1, 2, 16, 17, 31, 32]
