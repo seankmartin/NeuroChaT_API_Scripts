@@ -37,7 +37,8 @@ def main(cfg, args, **kwargs):
             seg_len = float(config.get("LFP", "plot_seg_length"))
             make_dir_if_not_exists(o_dir)
             plot_lfp(
-                o_dir, lfp_odict.lfp_odict, in_range=r, segment_length=seg_len)
+                o_dir, lfp_odict.get_signals(),
+                in_range=r, segment_length=seg_len, dpi=100)
 
 
 if __name__ == "__main__":
