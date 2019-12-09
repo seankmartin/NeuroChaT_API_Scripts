@@ -52,7 +52,7 @@ def plot_lfp(
             x_pos = [a + (j / convert) for j in range(len(lfp_sample))]
             axes[i].plot(x_pos, lfp_sample, c="k")
             axes[i].text(
-                0.01, 1, "Channel " + key,
+                0.03, 1, "Channel " + key,
                 transform=axes[i].transAxes, c="k")
             axes[i].set_ylim(y_axis_min, y_axis_max)
             axes[i].set_xlim(a, b)
