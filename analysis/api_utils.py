@@ -85,7 +85,7 @@ def save_mixed_dict_to_csv(in_dict, out_dir, out_name="results.csv"):
         return out_str
 
     out_loc = os.path.join(out_dir, out_name)
-    make_dir_if_not_exists(out_loc)
+    make_path_if_not_exists(out_loc)
     with open(out_loc, "w") as f:
         for key, val in in_dict.items():
             if isinstance(val, dict):
