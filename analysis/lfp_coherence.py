@@ -1,27 +1,55 @@
+from copy import deepcopy
+
 from scipy.signal import hilbert
+from scipy.stats import norm
 import numpy as np
 
 from neurochat.nc_utils import butter_filter
 from neurochat.nc_circular import CircStat
 
 
-def mean_vector_length(low_freq_lfp, high_freq_lfp):
-    """Compute the mean vector length from Hulsemann et al. 2019"""
+def mean_vector_length(low_freq_lfp, high_freq_lfp, amp_norm=True):
+    """
+    Compute the mean vector length from Hulsemann et al. 2019
+
+    If amp_norm is true, use the sum of the amplitudes to normalise,
+    as opposed to the number of observations.
+    """
     amplitude = split_into_amp_phase(high_freq_lfp)[0]
     phase = split_into_amp_phase(low_freq_lfp, deg=False)[1]
     if amplitude.size != phase.size:
-        print("Amplitude and phase must have same size in MVL")
-        exit(-1)
+        raise ValueError(
+            "Amp and phase: {} {} elements, equal size needed in MVL".format(
+                amplitude.size, phase.size))
+    # This could also be computed using CircStat
+    norm = np.sum(amplitude) if amp_norm else amplitude.size
     polar_vectors = np.multiply(amplitude, np.exp(1j * phase))
     res_vector = np.sum(polar_vectors)
-    mvl1 = np.abs(res_vector) / amplitude.size
-    cs = CircStat()
-    cs.set_rho(amplitude)
-    cs.set_theta(np.rad2deg(phase))
-    res = cs.calc_stat()
-    mvl2 = res["resultant"]
-    mvl3 = np.abs(res_vector) / np.sum(amplitude)  # this way matches circ stat
-    return mvl1, mvl2, mvl3
+    mvl = np.abs(res_vector) / norm
+    return mvl
+
+
+def mvl_shuffle(low_freq_lfp, high_freq_lfp, amp_norm=True, nshuffles=200):
+    """Compute a shuffled distribution from Hulsemann et al. 2019"""
+    samples = high_freq_lfp.get_samples()
+    new_lfp = deepcopy(high_freq_lfp)
+    observed_mvl = mean_vector_length(low_freq_lfp, high_freq_lfp)
+    shuffled_mvl = np.zeros(shape=(nshuffles))
+    for i in range(len(shuffled_mvl)):
+        sample_idx = int(np.floor(
+            (low_freq_lfp.get_total_samples() + 1) * np.random.random_sample()))
+        reversed_arr1 = samples[0:sample_idx][::-1]
+        reversed_arr2 = samples[sample_idx:samples.size][::-1]
+        permuted_amp_time = np.concatenate(
+            [reversed_arr1, reversed_arr2], axis=None)
+        new_lfp._set_samples(permuted_amp_time)
+        mvl = mean_vector_length(low_freq_lfp, new_lfp, amp_norm=amp_norm)
+        shuffled_mvl[i] = mvl
+    z_val = (observed_mvl - np.mean(shuffled_mvl)) / np.std(shuffled_mvl)
+    mvl95 = np.percentile(shuffled_mvl, 95)
+    p_val = norm.sf(z_val)
+
+    return observed_mvl, mvl95, z_val, p_val
 
 
 def split_into_amp_phase(lfp, deg=False):
@@ -42,4 +70,7 @@ if __name__ == "__main__":
     low_freq_lfp = lfp_odict.filter(5, 11).get("5")  # Theta range
     # Slow gamma is 30-55, fast gamma is 65-90
     high_freq_lfp = lfp_odict.filter(30, 55).get("1")
-    print(mean_vector_length(low_freq_lfp, high_freq_lfp))
+    amp_norm = True
+    # print(mean_vector_length(low_freq_lfp, high_freq_lfp, amp_norm=amp_norm))
+    print(mvl_shuffle(
+        low_freq_lfp, high_freq_lfp, amp_norm=amp_norm, nshuffles=1000))
