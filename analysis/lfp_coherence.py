@@ -65,12 +65,3 @@ if __name__ == "__main__":
     """Test out these functions."""
     recording = r"C:\Users\smartin5\Recordings\ER\LFP-cla-V2L\LFP-cla-V2L-ctrl\05112019-white\05112019-white-D"
     channels = [1, 5]
-    from lfp_odict import LfpODict
-    lfp_odict = LfpODict(recording, channels)
-    low_freq_lfp = lfp_odict.filter(5, 11).get("5")  # Theta range
-    # Slow gamma is 30-55, fast gamma is 65-90
-    high_freq_lfp = lfp_odict.filter(30, 55).get("1")
-    amp_norm = True
-    # print(mean_vector_length(low_freq_lfp, high_freq_lfp, amp_norm=amp_norm))
-    print(mvl_shuffle(
-        low_freq_lfp, high_freq_lfp, amp_norm=amp_norm, nshuffles=1000))
