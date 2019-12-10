@@ -2,7 +2,7 @@ import os
 import json
 
 from api_utils import read_cfg, parse_args, setup_logging, make_dir_if_not_exists
-from general_lfp import get_all_lfp, plot_lfp
+from lfp_plot import plot_lfp
 
 from neurochat.nc_utils import get_all_files_in_dir
 from lfp_odict import LfpODict
@@ -37,7 +37,7 @@ def main(cfg, args, **kwargs):
             seg_len = float(config.get("LFP", "plot_seg_length"))
             make_dir_if_not_exists(o_dir)
             plot_lfp(
-                o_dir, lfp_odict.get_signals(),
+                o_dir, lfp_odict.get_signal(),
                 in_range=r, segment_length=seg_len, dpi=100)
 
 
