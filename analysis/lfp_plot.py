@@ -146,3 +146,23 @@ def plot_coherence(f, Cxy, name=None, dpi=100):
         plt.show()
     else:
         fig.savefig(name, dpi=dpi)
+
+
+def plot_polar_coupling(polar_vectors, mvl, name=None, dpi=100):
+    # Kind of the right idea here, but need avg line in bins
+    # instead of scatter...
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection="polar")
+    res_vec = np.sum(polar_vectors)
+    norm = np.abs(res_vec) / mvl
+    theta = np.angle(polar_vectors)
+    r = np.abs(polar_vectors) / norm
+    ax.scatter(theta, r, c="k")
+    res_line = (res_vec / norm)
+    ax.plot(res_line.real, res_line.imag, c="b")
+    ax.text(np.pi / 8, 0.00001, "MVL {:.5f}".format(mvl))
+    ax.set_ylim(0, 0.00001)
+    if name is None:
+        plt.show()
+    else:
+        fig.savefig(name, dpi=dpi)
