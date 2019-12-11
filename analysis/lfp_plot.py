@@ -132,3 +132,17 @@ def plot_sample_of_signal(
         lfp_samples, out_name, nsplits=1, ylim=(-0.3, 0.3), figsize=(20, 8),
         offset=lfp.get_sampling_rate() * offseta,
         nsamples=lfp.get_sampling_rate() * length)
+
+
+def plot_coherence(f, Cxy, name=None, dpi=100):
+    fig, ax = plt.subplots()
+    # ax.semilogy(f, Cxy)
+    ax.plot(f, Cxy, c="k")
+    ax.set_xlabel('frequency [Hz]')
+    ax.set_ylabel('Coherence')
+    ax.set_xticks(np.arange(0, f.max(), 10))
+    ax.set_ylim(0, 1)
+    if name is None:
+        plt.show()
+    else:
+        fig.savefig(name, dpi=dpi)

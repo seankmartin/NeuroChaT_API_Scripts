@@ -35,15 +35,21 @@ class LfpODict:
         self.lfp_filt_odict = OrderedDict()
         if filt_params[0]:
             self.lfp_filt_odict = self.filter(*filt_params[1:])
+        else:
+            self.lfp_filt_odict = self.lfp_odict
 
     def get_signal(self, key=None):
         """Return signal at key, or full dict if key is None."""
+        if type(key) is int:
+            return list(self.lfp_odict.values())[key]
         if key is not None:
             return self.lfp_odict.get(key, None)
         return self.lfp_odict
 
     def get_filt_signal(self, key=None):
         """Return filtered signal at key, or full dict if key is None."""
+        if type(key) is int:
+            return list(self.lfp_filt_odict.values())[key]
         if key is not None:
             return self.lfp_filt_odict.get(key, None)
         return self.lfp_filt_odict
