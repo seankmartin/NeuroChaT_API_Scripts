@@ -6,15 +6,19 @@ from api_utils import read_cfg, parse_args, setup_logging, make_dir_if_not_exist
 from lfp_plot import plot_lfp
 from lfp_odict import LfpODict
 from lfp_coherence import mvl_shuffle
+from lfp_plot import plot_coherence
+from lfp_coherence import calc_coherence
 from api_utils import save_mixed_dict_to_csv
 import numpy as np
 
+from matplotlib.pyplot import close
 from neurochat.nc_utils import get_all_files_in_dir
 
 
 def main(cfg, args, **kwargs):
     in_dir = cfg.get("Setup", "in_dir")
     out_dir = cfg.get("Output", "out_dirname")
+    plot_dir = cfg.get("Output", "plot_dirname")
     re_filter = cfg.get("Setup", "regex_filter")
     re_filter = None if re_filter == "None" else re_filter
     analysis_flags = json.loads(config.get("Setup", "analysis_flags"))
@@ -67,6 +71,27 @@ def main(cfg, args, **kwargs):
                 fname, chan_list))
             res_dict = compute_mvl(fname, chan_list, res_dict)
         save_mixed_dict_to_csv(res_dict, in_dir, "no_mp_norm.csv")
+
+    if analysis_flags[2]:
+        make_dir_if_not_exists(os.path.join(in_dir, plot_dir))
+        for fname in filenames:
+            for key, val in channels.items():
+                if key in fname:
+                    chan_list = val[::-1]
+                    break
+            else:
+                raise ValueError("No key in {}, keys {}".format(
+                    fname, channels.keys()))
+            out_basename = "{}_{}.png".format(
+                os.path.basename(fname), chan_list)
+            out_name = os.path.join(in_dir, plot_dir, out_basename)
+            print("Saving coherence to {}".format(out_name))
+            lfp_odict = LfpODict(fname, chan_list, (False, 0, 80))
+            f, Cxy = calc_coherence(
+                lfp_odict.get_filt_signal(0),
+                lfp_odict.get_filt_signal(1))
+            plot_coherence(f, Cxy, out_name, dpi=200)
+            close("all")
 
 
 def compute_mvl(recording, channels, res_dict):
