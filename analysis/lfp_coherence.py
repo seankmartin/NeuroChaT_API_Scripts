@@ -9,12 +9,14 @@ from neurochat.nc_utils import butter_filter
 from neurochat.nc_circular import CircStat
 
 
-def mean_vector_length(low_freq_lfp, high_freq_lfp, amp_norm=True):
+def mean_vector_length(
+        low_freq_lfp, high_freq_lfp, amp_norm=True, return_all=False):
     """
     Compute the mean vector length from Hulsemann et al. 2019
 
     If amp_norm is true, use the sum of the amplitudes to normalise,
     as opposed to the number of observations.
+    if return_all is true, return the complex values
     """
     amplitude = split_into_amp_phase(high_freq_lfp)[0]
     phase = split_into_amp_phase(low_freq_lfp, deg=False)[1]
@@ -27,7 +29,10 @@ def mean_vector_length(low_freq_lfp, high_freq_lfp, amp_norm=True):
     polar_vectors = np.multiply(amplitude, np.exp(1j * phase))
     res_vector = np.sum(polar_vectors)
     mvl = np.abs(res_vector) / norm
-    return mvl
+    if return_all:
+        return polar_vectors, mvl
+    else:
+        return mvl
 
 
 def mvl_shuffle(low_freq_lfp, high_freq_lfp, amp_norm=True, nshuffles=200):

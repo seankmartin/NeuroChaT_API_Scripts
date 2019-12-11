@@ -6,7 +6,9 @@ from api_utils import read_cfg, parse_args, setup_logging, make_dir_if_not_exist
 from lfp_plot import plot_lfp
 from lfp_odict import LfpODict
 from lfp_coherence import mvl_shuffle
+from lfp_coherence import mean_vector_length
 from lfp_plot import plot_coherence
+from lfp_plot import plot_polar_coupling
 from lfp_coherence import calc_coherence
 from api_utils import save_mixed_dict_to_csv
 import numpy as np
@@ -20,6 +22,7 @@ def main(cfg, args, **kwargs):
     out_dir = cfg.get("Output", "out_dirname")
     plot_dir = cfg.get("Output", "plot_dirname")
     re_filter = cfg.get("Setup", "regex_filter")
+    s_filt = cfg.getboolean("LFP", "should_filter")
     re_filter = None if re_filter == "None" else re_filter
     analysis_flags = json.loads(config.get("Setup", "analysis_flags"))
 
@@ -42,18 +45,20 @@ def main(cfg, args, **kwargs):
     # Plot signal on each loaded channel
     if analysis_flags[0]:
         for fname in filenames:
-            lfp_odict = LfpODict(fname, channels="all")
+            lfp_odict = LfpODict(
+                fname, channels="all", filt_params=(s_filt, 0, 90))
             o_dir = os.path.join(
                 in_dir, out_dir, os.path.basename(fname))
-
             r = json.loads(config.get("LFP", "plot_time"))
             seg_len = float(config.get("LFP", "plot_seg_length"))
             make_dir_if_not_exists(o_dir)
             plot_lfp(
-                o_dir, lfp_odict.get_signal(),
+                o_dir, lfp_odict.get_filt_signal(),
                 in_range=r, segment_length=seg_len, dpi=100)
 
     if analysis_flags[1]:
+        # t_out_dir = os.path.join(in_dir, plot_dir)
+        # make_dir_if_not_exists(t_out_dir)
         res_dict = OrderedDict()
         headers = [
             "Low freq chan", "high freq chan",
@@ -94,20 +99,26 @@ def main(cfg, args, **kwargs):
             close("all")
 
 
-def compute_mvl(recording, channels, res_dict):
+def compute_mvl(recording, channels, res_dict, out_dir=None):
     """Assumed that low frequency is first."""
     lfp_odict = LfpODict(recording, channels)
     # Theta range
     low_freq_lfp = lfp_odict.filter(5, 11).get(channels[0])
     # Slow gamma is 30-55, fast gamma is 65-90
     high_freq_lfp = lfp_odict.filter(30, 55).get(channels[1])
-    amp_norm = False
+    amp_norm = True
     res = np.zeros(6)
     res[0] = channels[0]
     res[1] = channels[1]
     res[2:] = mvl_shuffle(
         low_freq_lfp, high_freq_lfp, amp_norm=amp_norm, nshuffles=200)
     res_dict[os.path.basename(recording)] = res
+    # out_name = os.path.join(
+    #     out_dir,
+    #     os.path.basename(recording) + "_{}_polar.png".format(channels))
+    # pv, mvl = mean_vector_length(
+    #     low_freq_lfp, high_freq_lfp, amp_norm=amp_norm, return_all=True)
+    # plot_polar_coupling(pv, mvl, out_name, dpi=200)
     return res_dict
 
 
