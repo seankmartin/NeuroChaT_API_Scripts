@@ -16,6 +16,8 @@ from lfp_odict import LfpODict
 from api_utils import save_mixed_dict_to_csv
 from api_utils import make_dir_if_not_exists
 
+import neurochat.nc_plot as nc_plot
+
 
 def raw_lfp_power(lfp, splits=None):
     """
@@ -248,6 +250,19 @@ def single_main(parsed):
     plot_long_lfp(lfp_odict.get_signal(eeg_num), out_name)
     out_name = os.path.join(in_dir, out_dir, "full_signal_filt.png")
     plot_long_lfp(lfp_odict.get_filt_signal(eeg_num), out_name)
+    graph_data = lfp_odict.get_signal(
+        eeg_num).spectrum(
+            fmax=90, db=False, tr=False, prefilt=True,
+            filtset=(10, 1.5, 90, "bandpass"))
+    fig = nc_plot.lfp_spectrum(graph_data)
+    fig.savefig(os.path.join(out_dir, "spec.png"))
+    graph_data = lfp_odict.get_signal(
+        eeg_num).spectrum(
+            fmax=90, db=True, tr=True, prefilt=True,
+            filtset=(10, 1.5, 90, "bandpass"))
+    fig = nc_plot.lfp_spectrum_tr(graph_data)
+    fig.savefig(os.path.join(out_dir, "tr_spec.png"))
+    plt.close("all")
 
     # Calculate power on this lfp channel
     lfp_to_use = (

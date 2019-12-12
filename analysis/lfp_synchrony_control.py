@@ -2,7 +2,7 @@ import os
 import json
 from collections import OrderedDict
 
-from api_utils import read_cfg, parse_args, setup_logging, make_dir_if_not_exists
+from api_utils import read_cfg, parse_args, setup_logging, make_dir_if_not_exists, make_path_if_not_exists
 from lfp_plot import plot_lfp
 from lfp_odict import LfpODict
 from lfp_coherence import mvl_shuffle
@@ -78,18 +78,19 @@ def main(cfg, args, **kwargs):
         save_mixed_dict_to_csv(res_dict, in_dir, "no_mp_norm.csv")
 
     if analysis_flags[2]:
-        make_dir_if_not_exists(os.path.join(in_dir, plot_dir))
+        make_dir_if_not_exists(os.path.join(in_dir, plot_dir, "coherence"))
         for fname in filenames:
             for key, val in channels.items():
                 if key in fname:
-                    chan_list = val[::-1]
+                    chan_list = val
                     break
             else:
                 raise ValueError("No key in {}, keys {}".format(
                     fname, channels.keys()))
             out_basename = "{}_{}.png".format(
                 os.path.basename(fname), chan_list)
-            out_name = os.path.join(in_dir, plot_dir, out_basename)
+            out_name = os.path.join(
+                in_dir, plot_dir, "coherence", out_basename)
             print("Saving coherence to {}".format(out_name))
             lfp_odict = LfpODict(fname, chan_list, (False, 0, 80))
             f, Cxy = calc_coherence(
@@ -97,6 +98,79 @@ def main(cfg, args, **kwargs):
                 lfp_odict.get_filt_signal(1))
             plot_coherence(f, Cxy, out_name, dpi=200)
             close("all")
+
+    if analysis_flags[3]:
+        import neurochat.nc_plot as nc_plot
+        from lfp_plot import plot_long_lfp
+        make_dir_if_not_exists(os.path.join(in_dir, plot_dir))
+        for fname in filenames:
+            for key, val in channels.items():
+                if key in fname:
+                    chan_list = val
+                    break
+            else:
+                raise ValueError("No key in {}, keys {}".format(
+                    fname, channels.keys()))
+            lfp_odict = LfpODict(fname, chan_list, (False, 0, 80))
+            for chan in chan_list:
+                out_basepart = os.path.join(
+                    in_dir, plot_dir, os.path.basename(fname), chan)
+                make_path_if_not_exists(out_basepart)
+                print("Saving plot results to {}".format(out_basepart))
+                out_name = out_basepart + "_full_signal_filt.png"
+                plot_long_lfp(lfp_odict.get_filt_signal(chan), out_name)
+                graph_data = lfp_odict.get_signal(chan).spectrum(
+                    fmax=90, db=False, tr=False, prefilt=True,
+                    filtset=(10, 1.5, 90, "bandpass"))
+                fig = nc_plot.lfp_spectrum(graph_data)
+                fig.savefig(out_basepart + "_spec.png")
+                graph_data = lfp_odict.get_signal(chan).spectrum(
+                    fmax=90, db=True, tr=True, prefilt=True,
+                    filtset=(10, 1.5, 90, "bandpass"))
+                fig = nc_plot.lfp_spectrum_tr(graph_data)
+                fig.savefig(out_basepart + "_tr_spec.png")
+                close("all")
+
+    if analysis_flags[4]:
+        out_dirname = os.path.join(in_dir, "nc_results")
+        print("Caculating power results to save to {}".format(
+            os.path.join(out_dirname, "power_res.csv")))
+        results = OrderedDict()
+        results["Names"] = [
+            "VC Chan", "Delta VC", "Theta VC", "Beta VC",
+            "Gamma VC", "Total VC",
+            "CLA Chan", "Delta CLA", "Theta CLA", "Beta CLA",
+            "Gamma CLA", "Total CLA"]
+        for fname in filenames:
+            for key, val in channels.items():
+                if key in fname:
+                    chan_list = val
+                    break
+            else:
+                raise ValueError("No key in {}, keys {}".format(
+                    fname, channels.keys()))
+            lfp_odict = LfpODict(fname, chan_list, (False, 0, 80))
+            o_arr = np.zeros(12)
+            for i, chan in enumerate(chan_list):
+                start_idx = i * 6
+                o_arr[start_idx] = chan
+                window_sec = 1.3
+                lfp = lfp_odict.get_signal(chan)
+                delta_power = lfp.bandpower(
+                    band=[1.5, 4], window_sec=window_sec)["bandpower"]
+                theta_power = lfp.bandpower(
+                    band=[5, 11], window_sec=window_sec)["bandpower"]
+                beta_power = lfp.bandpower(
+                    band=[12, 30], window_sec=window_sec)["bandpower"]
+                h_gamma_power = lfp.bandpower(
+                    band=[30, 90], window_sec=window_sec)["bandpower"]
+                o_arr[start_idx + 1:start_idx + 5] = [
+                    delta_power, theta_power, beta_power, h_gamma_power]
+                total_power = lfp.bandpower(
+                    band=[1, 95], window_sec=window_sec)["bandpower"]
+                o_arr[start_idx + 5] = total_power
+            results[os.path.basename(fname)] = o_arr
+        save_mixed_dict_to_csv(results, out_dirname, "power_res.csv")
 
 
 def compute_mvl(recording, channels, res_dict, out_dir=None):
