@@ -1,3 +1,4 @@
+import csv
 import os
 import sys
 import logging
@@ -6,6 +7,8 @@ from pprint import pprint
 import argparse
 
 import numpy as np
+
+from neurochat.nc_utils import make_dir_if_not_exists, log_exception
 
 
 def setup_logging(in_dir):
@@ -100,3 +103,30 @@ def save_mixed_dict_to_csv(in_dict, out_dir, out_name="results.csv"):
                 ))
                 exit(-1)
             f.write(out_str + "\n")
+
+
+def save_dicts_to_csv(filename, in_dicts):
+    """
+    Save a list of dictionaries to a csv.
+
+    The headers are set as the maximal set of keys in in_dicts.
+    It is assumed that all other dicts will have a subset of these keys.
+    Each entry in the dict is saved to a row of the csv, so it is assumed that
+    the values in the dict are mostly floats / ints / etc.
+    """
+    # find the dict with the most keys
+    max_key = []
+    for in_dict in in_dicts:
+        names = in_dicts[0].keys()
+        if len(names) > len(max_key):
+            max_key = names
+
+    try:
+        with open(filename, 'w', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=names)
+            writer.writeheader()
+            for in_dict in in_dicts:
+                writer.writerow(in_dict)
+
+    except Exception as e:
+        log_exception(e, "When {} saving to csv".format(filename))

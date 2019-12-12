@@ -73,7 +73,7 @@ def main(dir, bin_size, bin_bound):
             dict_list.append(result_dict)
 
     fname = os.path.join(dir, "psth_results", "psth.csv")
-    save_results_to_csv(fname, dict_list)
+    save_dicts_to_csv(fname, dict_list)
     print("Saved results to {}".format(fname))
 
 
@@ -90,7 +90,7 @@ def plot_psth(graph_data, name, dpi=100):
     plt.close()
 
 
-def save_results_to_csv(filename, in_dicts):
+def save_dicts_to_csv(filename, in_dicts):
     """Save a dictionary to a csv"""
     # find the dict with the most keys
     max_key = []
