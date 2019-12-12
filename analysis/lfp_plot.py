@@ -155,13 +155,27 @@ def plot_polar_coupling(polar_vectors, mvl, name=None, dpi=100):
     ax = fig.add_subplot(111, projection="polar")
     res_vec = np.sum(polar_vectors)
     norm = np.abs(res_vec) / mvl
-    theta = np.angle(polar_vectors)
-    r = np.abs(polar_vectors) / norm
-    ax.scatter(theta, r, c="k")
+
+    from neurochat.nc_circular import CircStat
+    cs = CircStat()
+    r = np.abs(polar_vectors)
+    theta = np.rad2deg(np.angle(polar_vectors))
+    print(r, theta)
+    ax.scatter(theta, r)
+    cs.set_rho(r)
+    cs.set_theta(theta)
+    count, ind, bins = cs.circ_histogram()
+    from scipy.stats import binned_statistic
+    binned_amp = (r, )
+    bins = np.append(bins, bins[0])
+    rate = np.append(count, count[0])
+    print(bins, rate)
+    # ax.plot(np.deg2rad(bins), rate, color="k")
     res_line = (res_vec / norm)
-    ax.plot(res_line.real, res_line.imag, c="b")
+    print(res_vec)
+    ax.plot([np.angle(res_vec), np.angle(res_vec)], [0, norm * mvl], c="r")
     ax.text(np.pi / 8, 0.00001, "MVL {:.5f}".format(mvl))
-    ax.set_ylim(0, 0.00001)
+    ax.set_ylim(0, r.max())
     if name is None:
         plt.show()
     else:

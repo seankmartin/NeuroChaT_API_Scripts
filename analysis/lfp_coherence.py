@@ -7,6 +7,7 @@ import numpy as np
 
 from neurochat.nc_utils import butter_filter
 from neurochat.nc_circular import CircStat
+from neurochat.nc_lfp import NLfp
 
 
 def mean_vector_length(
@@ -68,21 +69,60 @@ def calc_coherence(lfp1, lfp2):
 
 def split_into_amp_phase(lfp, deg=False):
     """It is assumed that the lfp signal passed in is already filtered."""
-    lfp_samples = lfp.get_samples()
+    if type(lfp) is NLfp:
+        lfp_samples = lfp.get_samples()
+    else:
+        lfp_samples = lfp
     complex_lfp = hilbert(lfp_samples)
     phase = np.angle(complex_lfp, deg=deg)
     amplitude = np.abs(complex_lfp)
     return amplitude, phase
 
 
+def test_mvl():
+    from scipy import signal
+    import matplotlib.pyplot as plt
+    t = np.linspace(0, 1, 500)
+    # 10 Hz sawtooth wave sampled at 500Hz
+    sig1 = signal.sawtooth(2 * np.pi * 10 * t)
+    # 50Hz sine wave sampled at 500Hz
+    sig2 = 0.02 * np.sin(2 * np.pi * 50 * t)
+    sig3 = 0.2 * np.sin(np.pi + 2 * np.pi * 10 * t)
+    sig6 = 0.1 * np.sin(2 * np.pi * 20 * t)
+    sig4 = 0.02 * np.sin(2 * np.pi * 55 * t)
+    sig5 = 0.02 * np.sin(np.pi + 2 * np.pi * 65 * t)
+    coupled_sig = sig2 + sig3 + sig6
+    fig, ax = plt.subplots()
+    ax.plot(sig1, c="b")
+    ax.plot(coupled_sig, c="r")
+    ax.plot(sig2 + sig4 + sig5, c="g")
+    plt.show()
+    plt.close("all")
+    all1, res1 = mean_vector_length(
+        sig1, coupled_sig, amp_norm=False, return_all=True)
+    all2, res2 = mean_vector_length(
+        sig1, sig2 + sig4 + sig5, amp_norm=False, return_all=True)
+    print(res1, res2)
+    from lfp_plot import plot_polar_coupling
+    plot_polar_coupling(all1, res1)
+    plot_polar_coupling(all2, res2)
+
+
 if __name__ == "__main__":
     """Test out these functions."""
-    recording = r"C:\Users\smartin5\Recordings\ER\LFP-cla-V2L\LFP-cla-V2L-ctrl\05112019-white\05112019-white-D"
-    channels = [1, 5]
-    from lfp_odict import LfpODict
-    lfp_odict = LfpODict(recording, channels=channels)
-    f, Cxy = calc_coherence(
-        lfp_odict.get_signal(0),
-        lfp_odict.get_signal(1))
-    from lfp_plot import plot_coherence
-    plot_coherence(f, Cxy)
+    test_record = False
+    test_sim = True
+
+    if test_sim:
+        test_mvl()
+
+    if test_record:
+        recording = r"C:\Users\smartin5\Recordings\ER\LFP-cla-V2L\LFP-cla-V2L-ctrl\05112019-white\05112019-white-D"
+        channels = [1, 5]
+        from lfp_odict import LfpODict
+        lfp_odict = LfpODict(recording, channels=channels)
+        f, Cxy = calc_coherence(
+            lfp_odict.get_signal(0),
+            lfp_odict.get_signal(1))
+        from lfp_plot import plot_coherence
+        plot_coherence(f, Cxy)
