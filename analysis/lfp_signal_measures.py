@@ -48,7 +48,7 @@ def raw_lfp_power(lfp, splits=None):
 
 def lfp_entropy(lfp, splits=None, etype="sample"):
     """
-    Calculate entropy on the lfp singal over multiple splits.
+    Calculate entropy on the lfp signal over multiple splits.
 
     etype can be "svd", "spectral", "sample" or "perm".
     see pyentropy for details on these.
@@ -109,9 +109,9 @@ def lfp_distribution_measures(
             ent["Avg entropy {}".format(j)] = 0
 
     dict_to_use = (
-        lfp_odict.get_filt_singal() if prefilt
+        lfp_odict.get_filt_signal() if prefilt
         else lfp_odict.get_signal())
-    for i, (_, lfp) in enumerate(dict_to_use):
+    for i, (_, lfp) in enumerate(dict_to_use.items()):
         lfp_s_array.append(lfp.get_samples())
         lfp_t_array.append(lfp.get_timestamp())
         p_result = raw_lfp_power(lfp, splits)
@@ -148,7 +148,7 @@ def lfp_theta_dist(lfp_odict, splits, prefilt=False, lower=None, upper=None):
 
     """
     power_arr = np.zeros(shape=(6, len(lfp_odict), len(splits)))
-    for i, (_, lfp) in enumerate(lfp_odict.get_signal()):
+    for i, (_, lfp) in enumerate(lfp_odict.get_signal().items()):
         for j, split in enumerate(splits):
             new_lfp = lfp.subsample(split)
             new_lfp.bandpower_ratio(
@@ -241,7 +241,7 @@ def single_main(parsed):
 
     # Load the data
     # TODO only load certain channels here
-    lfp_odict = LfpODict(loc[:-3], filt_params=(filt, 1.5, max_lfp))
+    lfp_odict = LfpODict(loc, filt_params=(filt, 1.5, max_lfp))
 
     # Plot signals
     out_name = os.path.join(out_dir, "full_signal.png")

@@ -63,7 +63,7 @@ def main():
         args = SimpleNamespace(
             max_freq=40,
             nofilt=False,
-            loc=os.path.join(root, name[0]),
+            loc=os.path.join(root, name[0][:-4]),
             eeg_num="13",
             splits=[],
             out_loc=name[1],
@@ -122,7 +122,8 @@ def main():
         stats.sem(final2, ddof=1), stats.sem(final1, ddof=1),
         t_res[0], t_res[1]]
     _results["Stats Vals"] = out_vals
-    save_mixed_dict_to_csv(_results, "nc_results", "power_results.csv")
+    save_mixed_dict_to_csv(
+        _results, os.path.join(root, "nc_results"), "power_results.csv")
 
 
 if __name__ == "__main__":
