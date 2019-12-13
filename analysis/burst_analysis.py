@@ -26,36 +26,7 @@ from neurochat.nc_utils import make_dir_if_not_exists, log_exception, oDict
 from neurochat.nc_utils import remove_extension
 import neurochat.nc_plot as nc_plot
 
-
-def save_results_to_csv(filename, in_dicts):
-    """Save a dictionary to a csv"""
-    # find the dict with the most keys
-    max_key = []
-    for in_dict in in_dicts:
-        names = in_dicts[0].keys()
-        if len(names) > len(max_key):
-            max_key = names
-
-    try:
-        with open(filename, 'w', newline='') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=names)
-            writer.writeheader()
-            for in_dict in in_dicts:
-                writer.writerow(in_dict)
-
-    except Exception as e:
-        log_exception(e, "When {} saving to csv".format(filename))
-
-
-def visualise_spacing(N=61, start=5, stop=10000):
-    """Plots a visual of the logspacing in the ISI"""
-    # This is equivalent to np.exp(np.linspace)
-    x1 = np.logspace(np.log10(start), np.log10(stop), N, base=10)
-    y = np.zeros(N)
-    plt.plot(x1, y, 'o')
-    plt.ylim([-0.5, 1])
-    print(x1)
-    plt.show()
+from api_utils import save_dicts_to_csv
 
 
 def log_isi(ndata, start=0.0005, stop=10, num_bins=60):
@@ -73,9 +44,10 @@ def log_isi(ndata, start=0.0005, stop=10, num_bins=60):
     hist, _ = np.histogram(
         np.log10(np.diff(ndata.spike.get_unit_stamp())),
         bins=isi_log_bins, density=False)
-    # return ndata.isi(bins=isi_log_bins, density=True), isi_log_bins
     return hist / ndata.spike.get_unit_stamp().size, isi_log_bins
-    # return hist, isi_log_bins
+
+    # alternatively, using neurochat built in method.
+    # return ndata.isi(bins=isi_log_bins, density=True), isi_log_bins
 
 
 def cell_classification_stats(
@@ -158,7 +130,7 @@ def cell_classification_stats(
 
     # Save the cell statistics
     make_dir_if_not_exists(out_name)
-    save_results_to_csv(out_name, _results)
+    save_dicts_to_csv(out_name, _results)
     _results.clear()
 
 
@@ -459,64 +431,6 @@ def main(args, config):
     if analysis_flags[3]:
         print("Computing pca clustering")
         pca_clustering(container, in_dir, opt_end=opt_end, s_color=s_color)
-
-    if analysis_flags[4]:
-        print("Computing time resolved tests")
-        with open(
-                os.path.join(in_dir, "nc_results", "bursttime.csv"), "w") as f:
-            from collections import OrderedDict
-            import operator
-            info = OrderedDict()
-            for i in range(container.get_num_data()):
-                c_info = container.get_index_info(i)
-                compare, tetrode = os.path.splitext(c_info["Spike"])
-                r_type = compare.split("_")[-1]
-                final_c = compare[:-(len(r_type) + 1)]
-                add_info = (int(r_type), int(tetrode[1:]), c_info["Units"], i)
-                if final_c[2:].startswith("11"):
-                    str_part = final_c[2:13]
-                else:
-                    str_part = final_c[2:20]
-                if str_part in info:
-                    info[str_part].append(add_info)
-                else:
-                    info[str_part] = [add_info]
-            for key, val in info.items():
-                val = sorted(val, key=operator.itemgetter(0, 1))
-                info[key] = val
-
-            f.write("Name")
-            for i in range(1, 18):
-                f.write(",{}".format(i))
-            f.write("\n")
-            for key, val in info.items():
-                t_units = OrderedDict()
-                for s_val in val:
-                    r_type, t, units, idx = s_val
-                    if str(t) in t_units:
-                        for u in units:
-                            if u in t_units[str(t)]:
-                                t_units[str(t)][u].append((r_type, idx))
-                    else:
-                        t_units[str(t)] = OrderedDict()
-                        for u in units:
-                            t_units[str(t)][u] = [(r_type, idx)]
-
-                for tetrode, units in t_units.items():
-                    for unit, idxs in units.items():
-                        f.write(
-                            key + "__" + str(tetrode) + "__" + str(unit) + ",")
-                        burst_arr = np.full(17, np.nan)
-                        for i in idxs:
-                            unit_o_idx = container.get_units(i[1]).index(unit)
-                            data = container.get_data_at(i[1], unit_o_idx)
-                            data.burst()
-                            p_burst = data.get_results()["Propensity to burst"]
-                            burst_arr[i[0] - 1] = p_burst
-                        o_str = ""
-                        for b in burst_arr:
-                            o_str = o_str + "{},".format(b)
-                        f.write(o_str[:-1] + "\n")
 
 
 def setup_logging(in_dir):
