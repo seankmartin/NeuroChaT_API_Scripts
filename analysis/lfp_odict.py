@@ -100,11 +100,13 @@ class LfpODict:
 
         for i in channels:
             end = ".eeg"
-            if i != 1:
+            if i != 1 and i != "1":
                 end = end + str(i)
             load_loc = filename + end
             lfp = NLfp(system="Axona")
             lfp.load(load_loc)
+            if lfp.get_samples() is None:
+                raise Exception("Failed to load lfp {}".format(load_loc))
             lfp_odict[str(i)] = lfp
         self.lfp_odict = lfp_odict
 
