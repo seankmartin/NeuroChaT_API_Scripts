@@ -24,7 +24,7 @@ def main(cfg, args, **kwargs):
     re_filter = cfg.get("Setup", "regex_filter")
     s_filt = cfg.getboolean("LFP", "should_filter")
     re_filter = None if re_filter == "None" else re_filter
-    analysis_flags = json.loads(config.get("Setup", "analysis_flags"))
+    analysis_flags = json.loads(cfg.get("Setup", "analysis_flags"))
 
     channel_dict_vc = cfg["VC"]
     channel_dict_cla = cfg["CLA"]
@@ -49,8 +49,8 @@ def main(cfg, args, **kwargs):
                 fname, channels="all", filt_params=(s_filt, 0, 90))
             o_dir = os.path.join(
                 in_dir, out_dir, os.path.basename(fname))
-            r = json.loads(config.get("LFP", "plot_time"))
-            seg_len = float(config.get("LFP", "plot_seg_length"))
+            r = json.loads(cfg.get("LFP", "plot_time"))
+            seg_len = float(cfg.get("LFP", "plot_seg_length"))
             make_dir_if_not_exists(o_dir)
             plot_lfp(
                 o_dir, lfp_odict.get_filt_signal(),
@@ -132,7 +132,7 @@ def main(cfg, args, **kwargs):
                 close("all")
 
     if analysis_flags[4]:
-        out_dirname = os.path.join(in_dir, "nc_results")
+        out_dirname = os.path.join(in_dir, plot_dir)
         print("Caculating power results to save to {}".format(
             os.path.join(out_dirname, "power_res.csv")))
         results = OrderedDict()
@@ -196,6 +196,14 @@ def compute_mvl(recording, channels, res_dict, out_dir=None):
     return res_dict
 
 
+def power_calc(cfg1, cfg2):
+    print(cfg1, cfg2)
+    for cnfg in cfg1, cfg2:
+        config = read_cfg(cnfg)
+        args = parse_args()
+        main(config, args)
+
+
 if __name__ == "__main__":
     """Parse args and cfg and send to main."""
     here = os.path.dirname(os.path.realpath(__file__))
@@ -203,3 +211,7 @@ if __name__ == "__main__":
     config = read_cfg(config_path)
     args = parse_args()
     main(config, args)
+
+    # config_path1 = os.path.join(here, "Configs", "lfp_synchrony_r1.cfg")
+    # config_path2 = os.path.join(here, "Configs", "lfp_synchrony_r2.cfg")
+    # power_calc(config_path1, config_path2)
