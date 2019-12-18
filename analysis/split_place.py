@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from neurochat.nc_data import NData
+from neurochat.nc_spatial import NSpatial
 from neurochat.nc_datacontainer import NDataContainer
 from neurochat.nc_plot import loc_firing_and_place
 from api_utils import make_dir_if_not_exists, save_mixed_dict_to_csv
@@ -12,6 +13,50 @@ import numpy as np
 from scipy.spatial.distance import cosine
 from scipy.stats import rankdata
 import seaborn as sns
+
+
+def corner_place_map(self, ftimes, **kwargs):
+    _results = OrderedDict()
+    lim = kwargs.get('range', [0, self.get_duration()])
+
+    self.set_border(self.calc_border(**kwargs))
+
+    xedges = self._xbound
+    yedges = self._ybound
+
+    spikeLoc = self.get_event_loc(ftimes, **kwargs)[1]
+    posX = self._pos_x[np.logical_and(
+        self.get_time() >= lim[0], self.get_time() <= lim[1])]
+    posY = self._pos_y[np.logical_and(
+        self.get_time() >= lim[0], self.get_time() <= lim[1])]
+
+    xedges_f = np.append(xedges, xedges[-1] + np.mean(np.diff(xedges)))
+    yedges_f = np.append(yedges, yedges[-1] + np.mean(np.diff(yedges)))
+    g_x = [xedges_f[0], xedges_f[-1] / 2, xedges_f[-1]]
+    g_y = [yedges_f[0], yedges_f[-1] / 2, yedges_f[-1]]
+    g_tmap, _, _ = np.histogram2d(
+        posY, posX, bins=[g_y, g_x])
+    g_tmap /= self.get_sampling_rate()
+    g_spike, _, _ = np.histogram2d(
+        spikeLoc[1], spikeLoc[0], bins=[g_y, g_x])
+    g_fmap = np.divide(
+        g_spike, g_tmap, out=np.zeros_like(g_spike), where=g_tmap != 0)
+    results = np.zeros(shape=(2, 4))
+    for i, (spikes, rate) in enumerate(
+            zip(g_spike.flatten(), g_fmap.flatten())):
+        results[0, i] = spikes
+        results[1, i] = rate
+
+    norm_res = np.zeros(shape=(2, 4))
+    norm_res[0] = results[0] / (results[0].sum())
+    norm_res[1] = results[1] / (results[1].sum())
+
+    names = ["NW", "NE", "SW", "SE"]
+    return names, results, norm_res
+
+
+# Add the quadrant calculation to the neurochat spatial class
+NSpatial.corner_place_map = corner_place_map
 
 
 def undo_rot(vec):
@@ -192,8 +237,8 @@ def test_random(num_tests):
 
 
 if __name__ == "__main__":
-    test_random(1000000)
-    exit(-1)
+    # test_random(1000000)
+    # exit(-1)
     sns.set()
     in_dir = r"C:\Users\smartin5\Recordings\ER\Odors\cla-13-04-2018-1"
     tetrode = 10
