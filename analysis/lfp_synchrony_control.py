@@ -78,6 +78,7 @@ def main(cfg, args, **kwargs):
         save_mixed_dict_to_csv(res_dict, in_dir, "no_mp_norm.csv")
 
     if analysis_flags[2]:
+        res_dict = OrderedDict()
         make_dir_if_not_exists(os.path.join(in_dir, plot_dir, "coherence"))
         for fname in filenames:
             for key, val in channels.items():
@@ -96,8 +97,13 @@ def main(cfg, args, **kwargs):
             f, Cxy = calc_coherence(
                 lfp_odict.get_filt_signal(0),
                 lfp_odict.get_filt_signal(1))
+            if not "Name" in list(res_dict.keys()):
+                res_dict["Name"] = f
+            res_dict[fname] = Cxy
             plot_coherence(f, Cxy, out_name, dpi=200)
             close("all")
+        save_mixed_dict_to_csv(
+            res_dict, os.path.join(in_dir, plot_dir), "Coherence.csv")
 
     if analysis_flags[3]:
         import neurochat.nc_plot as nc_plot

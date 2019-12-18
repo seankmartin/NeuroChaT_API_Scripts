@@ -1,8 +1,9 @@
 import math
 import os
 from collections import OrderedDict
-import numpy as np
+from copy import deepcopy
 
+import numpy as np
 import matplotlib.pyplot as plt
 
 from api_utils import make_dir_if_not_exists
@@ -124,23 +125,26 @@ def plot_sample_of_signal(
     out_name = os.path.join(out_dir, name)
     fs = lfp.get_sampling_rate()
     filt, lower, upper = filt_params
-    lfp_samples = lfp.get_samples()
+    lfp_to_plot = lfp
     if filt:
+        lfp_to_plot = deepcopy(lfp)
+        lfp_samples = lfp.get_samples()
         lfp_samples = butter_filter(
             lfp_samples, fs, 10, lower, upper, 'bandpass')
+        lfp_to_plot._set_samples(lfp_samples)
     plot_long_lfp(
-        lfp_samples, out_name, nsplits=1, ylim=(-0.3, 0.3), figsize=(20, 8),
+        lfp_to_plot, out_name, nsplits=1, ylim=(-0.5, 0.5), figsize=(20, 4),
         offset=lfp.get_sampling_rate() * offseta,
         nsamples=lfp.get_sampling_rate() * length)
 
 
-def plot_coherence(f, Cxy, name=None, dpi=100):
+def plot_coherence(f, Cxy, name=None, dpi=100, tick_freq=10):
     fig, ax = plt.subplots()
     # ax.semilogy(f, Cxy)
     ax.plot(f, Cxy, c="k")
     ax.set_xlabel('frequency [Hz]')
     ax.set_ylabel('Coherence')
-    ax.set_xticks(np.arange(0, f.max(), 10))
+    ax.set_xticks(np.arange(0, f.max(), tick_freq))
     ax.set_ylim(0, 1)
     if name is None:
         plt.show()

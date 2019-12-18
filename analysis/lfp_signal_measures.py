@@ -291,7 +291,7 @@ def single_main(parsed):
         }
 
     save_mixed_dict_to_csv(results, out_dir)
-    t_results = lfp_theta_dist(lfp_odict, splits, filt, 1.5, max_lfp)
+    t_results = lfp_theta_dist(lfp_odict, splits, filt, 1, max_lfp)
 
     return results, d_result[-1], t_results
 

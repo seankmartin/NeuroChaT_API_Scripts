@@ -17,12 +17,19 @@ def plot_sample():
     root = r"C:\Users\smartin5\Recordings\ER"
     name = "29082019-bt2\\29082019-bt2-2nd-LFP.eeg"
     load_loc = os.path.join(root, name)
+    out_dir = os.path.join(root, "nc_results")
+    print("Saving signal sample to {}".format(os.path.join(
+        out_dir, "Sal.pdf")))
     plot_sample_of_signal(
-        load_loc, out_dir="nc_results", name="Sal", offseta=400)
+        load_loc, out_dir=out_dir, name="Sal.pdf", offseta=400,
+        filt_params=(True, 1.5, 40), length=40)
     name = "30082019-bt2\\30082019-bt2-2nd-LFP.eeg"
     load_loc = os.path.join(root, name)
+    print("Saving signal sample to {}".format(os.path.join(
+        out_dir, "Ser.pdf")))
     plot_sample_of_signal(
-        load_loc, out_dir="nc_results", name="Ser", offseta=400)
+        load_loc, out_dir=out_dir, name="Ser.pdf", offseta=400,
+        filt_params=(True, 1.5, 40), length=50)
 
 
 def main():
@@ -61,7 +68,7 @@ def main():
     # Set up the namespace with params for each name and run the file
     for name in names_list:
         args = SimpleNamespace(
-            max_freq=40,
+            max_freq=90,
             nofilt=False,
             loc=os.path.join(root, name[0][:-4]),
             eeg_num="13",
@@ -123,8 +130,9 @@ def main():
         t_res[0], t_res[1]]
     _results["Stats Vals"] = out_vals
     save_mixed_dict_to_csv(
-        _results, os.path.join(root, "nc_results"), "power_results.csv")
+        _results, os.path.join(root, "nc_results"), "power_results_90.csv")
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    plot_sample()
