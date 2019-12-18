@@ -79,6 +79,25 @@ def split_into_amp_phase(lfp, deg=False):
     return amplitude, phase
 
 
+def test_coherence():
+    from scipy import signal
+    import matplotlib.pyplot as plt
+    from lfp_plot import plot_coherence
+    fs = 10e3
+    N = 1e5
+    amp = 20
+    freq = 1234.0
+    noise_power = 0.001 * fs / 2
+    time = np.arange(N) / fs
+    b, a = signal.butter(2, 0.25, 'low')
+    x = np.random.normal(scale=np.sqrt(noise_power), size=time.shape)
+    y = signal.lfilter(b, a, x)
+    x += amp * np.sin(2 * np.pi * freq * time)
+    y += np.random.normal(scale=0.1 * np.sqrt(noise_power), size=time.shape)
+    f, Cxy = coherence(x, y, fs, nperseg=1024)
+    plot_coherence(f, Cxy, tick_freq=1000)
+
+
 def test_mvl():
     from scipy import signal
     import matplotlib.pyplot as plt
@@ -114,6 +133,7 @@ if __name__ == "__main__":
     test_sim = True
 
     if test_sim:
+        test_coherence()
         test_mvl()
 
     if test_record:
