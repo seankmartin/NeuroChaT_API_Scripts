@@ -114,16 +114,23 @@ def save_dicts_to_csv(filename, in_dicts):
     Each entry in the dict is saved to a row of the csv, so it is assumed that
     the values in the dict are mostly floats / ints / etc.
     """
-    # find the dict with the most keys
-    max_key = []
+    # first, find the dict with the most keys
+    max_key = in_dicts[0].keys()
     for in_dict in in_dicts:
-        names = in_dicts[0].keys()
+        names = in_dict.keys()
         if len(names) > len(max_key):
             max_key = names
 
+    # Then append other keys if still missing keys
+    for in_dict in in_dicts:
+        names = in_dict.keys()
+        for name in names:
+            if not name in max_key:
+                max_key.append(name)
+
     try:
         with open(filename, 'w', newline='') as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=names)
+            writer = csv.DictWriter(csvfile, fieldnames=max_key)
             writer.writeheader()
             for in_dict in in_dicts:
                 writer.writerow(in_dict)
