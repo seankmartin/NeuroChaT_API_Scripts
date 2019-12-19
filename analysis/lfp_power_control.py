@@ -12,24 +12,27 @@ from lfp_signal_measures import single_main
 from api_utils import save_mixed_dict_to_csv
 
 
+def plot_one_sample(root, name, out_name, start=50, length=50):
+    load_loc = os.path.join(root, name)
+    out_dir = os.path.join(root, "nc_results")
+    print("Saving signal sample to {}".format(os.path.join(
+        out_dir, out_name)))
+    plot_sample_of_signal(
+        load_loc, out_dir=out_dir, name=out_name, offseta=start,
+        filt_params=(True, 1.5, 40), length=length)
+
+
 def plot_sample():
     """Plot a small sample of the signal."""
     root = r"C:\Users\smartin5\Recordings\ER"
     name = "29082019-bt2\\29082019-bt2-2nd-LFP.eeg"
-    load_loc = os.path.join(root, name)
-    out_dir = os.path.join(root, "nc_results")
-    print("Saving signal sample to {}".format(os.path.join(
-        out_dir, "Sal.pdf")))
-    plot_sample_of_signal(
-        load_loc, out_dir=out_dir, name="Sal.pdf", offseta=400,
-        filt_params=(True, 1.5, 40), length=40)
+    plot_one_sample(root, name, "Sal.pdf")
     name = "30082019-bt2\\30082019-bt2-2nd-LFP.eeg"
-    load_loc = os.path.join(root, name)
-    print("Saving signal sample to {}".format(os.path.join(
-        out_dir, "Ser.pdf")))
-    plot_sample_of_signal(
-        load_loc, out_dir=out_dir, name="Ser.pdf", offseta=400,
-        filt_params=(True, 1.5, 40), length=50)
+    plot_one_sample(root, name, "Ser.pdf")
+    name = "cla-r-07022019\\cla-r-07022019-D.eeg"
+    plot_one_sample(root, name, "D.pdf", 210, 50)
+    name = "cla-r-07022019\\cla-r-07022019-L1.eeg"
+    plot_one_sample(root, name, "L1.pdf", 50, 50)
 
 
 def main():
