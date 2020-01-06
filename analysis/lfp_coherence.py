@@ -61,10 +61,14 @@ def mvl_shuffle(low_freq_lfp, high_freq_lfp, amp_norm=True, nshuffles=200):
     return observed_mvl, mvl95, z_val, p_val
 
 
-def calc_coherence(lfp1, lfp2):
-    return coherence(
+def calc_coherence(lfp1, lfp2, squared=True):
+    f, Cxy = coherence(
         lfp1.get_samples(), lfp2.get_samples(),
         fs=lfp1.get_sampling_rate(), nperseg=1024)
+    if squared:
+        return f, Cxy
+    result = f, np.sqrt(Cxy)
+    return result
 
 
 def split_into_amp_phase(lfp, deg=False):

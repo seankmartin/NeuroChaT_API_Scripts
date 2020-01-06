@@ -156,7 +156,7 @@ def lfp_theta_dist(lfp_odict, splits, prefilt=False, lower=None, upper=None):
             new_lfp.bandpower_ratio(
                 [5, 11], [1.5, 4], 1.33, band_total=prefilt,
                 first_name="Theta", second_name="Delta",
-                totalband=(lower, upper))
+                total_band=(lower, upper))
             t_result = new_lfp.get_results()
             power_arr[0, i, j] = t_result["Theta Power"]
             power_arr[1, i, j] = t_result["Delta Power"]
@@ -291,7 +291,7 @@ def single_main(parsed):
         }
 
     save_mixed_dict_to_csv(results, out_dir)
-    t_results = lfp_theta_dist(lfp_odict, splits, filt, 1, max_lfp)
+    t_results = lfp_theta_dist(lfp_odict, splits, filt, 1.5, max_lfp)
 
     return results, d_result[-1], t_results
 

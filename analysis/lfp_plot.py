@@ -133,7 +133,7 @@ def plot_sample_of_signal(
             lfp_samples, fs, 10, lower, upper, 'bandpass')
         lfp_to_plot._set_samples(lfp_samples)
     plot_long_lfp(
-        lfp_to_plot, out_name, nsplits=1, ylim=(-0.5, 0.5), figsize=(20, 4),
+        lfp_to_plot, out_name, nsplits=1, ylim=(-0.325, 0.325), figsize=(20, 2),
         offset=lfp.get_sampling_rate() * offseta,
         nsamples=lfp.get_sampling_rate() * length)
 
