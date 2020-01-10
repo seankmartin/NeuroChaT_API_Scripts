@@ -54,6 +54,16 @@ class LfpODict:
             return self.lfp_filt_odict.get(key, None)
         return self.lfp_filt_odict
 
+    def get_signals(self, keys):
+        """Return a list of NLFP objects at the given keys."""
+        out_list = []
+        for key in keys:
+            to_add = self.lfp_filt_odict.get(key, None)
+            if to_add is None:
+                print("Warning {} is not in LFP Dict".format(key))
+            out_list.append(to_add)
+        return out_list
+
     def filter(self, lower, upper):
         """
         Filter all the signals in the stored lfp dict.
