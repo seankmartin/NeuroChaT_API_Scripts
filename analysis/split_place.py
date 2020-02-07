@@ -16,6 +16,32 @@ import seaborn as sns
 
 
 def corner_place_map(self, ftimes, **kwargs):
+    """
+    Compute the number of spikes and firing rate in 4 quadrants.
+
+    Parameters
+    ----------
+    ftimes: ndarray
+        Timestamps of the spiking activity of a unit.
+    **kwargs
+        range : float
+            How long in seconds of the recording to use.
+
+    Returns
+    -------
+    names - List, results - np.ndarray, norm_results - np.ndarry
+        names are ["NW", "NE", "SW", "SE"], so quadrant 0 is "NW"
+        results is a 2 * 4 array, with each row consisting of
+            num_spikes, firing_rate in quadrant i (0 - 3) see names.
+        norm_results is a 2 * 4 array in the same format as results
+            but each value is normalised by the total value.
+
+    Raises
+    ------
+    Raises a ValueError if the total number of spikes in 
+    quadrants does not match the overall number of spikes
+    in the recording.
+    """
     _results = OrderedDict()
     lim = kwargs.get('range', [0, self.get_duration()])
 
@@ -46,6 +72,12 @@ def corner_place_map(self, ftimes, **kwargs):
             zip(g_spike.flatten(), g_fmap.flatten())):
         results[0, i] = spikes
         results[1, i] = rate
+
+    if results[0].sum() != len(ftimes):
+        raise ValueError((
+            "Number of spikes in quadrants ({})" +
+            "do not match overall spikes ({})"
+        ).format(results[0].sum(), len(ftimes)))
 
     norm_res = np.zeros(shape=(2, 4))
     norm_res[0] = results[0] / (results[0].sum())
