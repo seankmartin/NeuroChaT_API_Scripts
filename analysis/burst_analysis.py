@@ -87,15 +87,15 @@ def cell_classification_stats(
 
             # Caculate cell properties
             ndata.wave_property()
-            ndata.place()
-            ndata.hd_rate()
-            ndata.grid()
-            ndata.border()
-            ndata.multiple_regression()
-            isi = ndata.isi()
-            ndata.burst(burst_thresh=6)
-            phase_dist = ndata.phase_dist()
-            theta_index = ndata.theta_index()
+            # ndata.place()
+            # ndata.hd_rate()
+            # ndata.grid()
+            # ndata.border()
+            # ndata.multiple_regression()
+            ndata.isi()
+            ndata.burst(burst_thresh=5)
+            ndata.phase_dist()
+            ndata.theta_index()
             ndata.bandpower_ratio(
                 [5, 11], [1.5, 4], 1.6, relative=True,
                 first_name="Theta", second_name="Delta")
@@ -104,21 +104,37 @@ def cell_classification_stats(
             _results.append(result)
 
             if should_plot:
-                plot_loc = os.path.join(
-                    in_dir, "nc_plots", parts[0] + "_" + parts[-1] + "_" +
-                    str(ndata.get_unit_no()) + "_phase" + opt_end + ".png")
-                make_dir_if_not_exists(plot_loc)
-                fig1, fig2, fig3 = nc_plot.spike_phase(phase_dist)
-                fig2.savefig(plot_loc)
-                plt.close("all")
+                # plot_loc = os.path.join(
+                #     in_dir, "nc_plots", parts[0] + "_" + parts[-1] + "_" +
+                #     str(ndata.get_unit_no()) + "_phase" + opt_end + ".png")
+                # make_dir_if_not_exists(plot_loc)
+                # fig1, fig2, fig3 = nc_plot.spike_phase(phase_dist)
+                # fig2.savefig(plot_loc)
+                # plt.close("all")
 
                 if unit_idx == len(container.get_units(data_idx)) - 1:
                     plot_loc = os.path.join(
-                        in_dir, "nc_plots", parts[0] + "_lfp" + opt_end + ".png")
+                        in_dir, "nc_plots", parts[0] +
+                        "_lfp_periodogram" + opt_end + ".png")
                     make_dir_if_not_exists(plot_loc)
 
                     lfp_spectrum = ndata.spectrum()
                     fig = nc_plot.lfp_spectrum(lfp_spectrum)
+                    fig.savefig(plot_loc)
+                    plt.close(fig)
+
+                if unit_idx == len(container.get_units(data_idx)) - 1:
+                    plot_loc = os.path.join(
+                        in_dir, "nc_plots", parts[0] +
+                        "_lfp_spectrum" + opt_end + ".png")
+                    make_dir_if_not_exists(plot_loc)
+
+                    graph_data = ndata.spectrum(
+                        ptype='psd', prefilt=True,
+                        db=True, tr=True,
+                        filtset=[10, 1.0, 40, 'bandpass'],
+                        fmax=40)
+                    fig = nc_plot.lfp_spectrum_tr(graph_data)
                     fig.savefig(plot_loc)
                     plt.close(fig)
 
@@ -397,7 +413,7 @@ def main(args, config):
     out_name = container.add_axona_files_from_dir(
         in_dir, tetrode_list=tetrode_list, recursive=True, re_filter=regex_filter, verbose=False, unit_cutoff=(0, max_units))
     container.setup()
-    if len(container) is 0:
+    if len(container) == 0:
         print("Unable to find any files matching regex {}".format(
             regex_filter))
         exit(-1)
@@ -444,7 +460,7 @@ def setup_logging(in_dir):
 
 
 def print_config(config, msg=""):
-    if msg is not "":
+    if msg != "":
         print(msg)
     """Prints the contents of a config file"""
     config_dict = [{x: tuple(config.items(x))} for x in config.sections()]
@@ -461,7 +477,7 @@ if __name__ == "__main__":
         description='Process modifiable parameters from command line')
     args, unparsed = parser.parse_known_args()
 
-    if len(unparsed) is not 0:
+    if len(unparsed) != 0:
         print("Unrecognised command line argument passed")
         print(unparsed)
         exit(-1)
