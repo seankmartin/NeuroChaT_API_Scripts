@@ -69,6 +69,11 @@ def cell_classification_stats(
             data_idx, unit_idx = container._index_to_data_pos(i)
             name = spike_names[data_idx][0]
             parts = os.path.basename(name).split(".")
+            o_name = os.path.join(
+                os.path.dirname(name)[len(in_dir + os.sep):],
+                parts[0])
+            print("Working on unit {} of {}: {}, T{}, U{}".format(
+                i, len(container), o_name, parts[-1], ndata.get_unit_no()))
 
             # Setup up identifier information
             note_dict = oDict()
@@ -96,9 +101,9 @@ def cell_classification_stats(
             ndata.burst(burst_thresh=5)
             ndata.phase_dist()
             ndata.theta_index()
-            ndata.bandpower_ratio(
-                [5, 11], [1.5, 4], 1.6, relative=True,
-                first_name="Theta", second_name="Delta")
+            # ndata.bandpower_ratio(
+            #     [5, 11], [1.5, 4], 1.6, relative=True,
+            #     first_name="Theta", second_name="Delta")
             result = copy(ndata.get_results(
                 spaces_to_underscores=not output_spaces))
             _results.append(result)
