@@ -73,7 +73,7 @@ def cell_classification_stats(
                 os.path.dirname(name)[len(in_dir + os.sep):],
                 parts[0])
             print("Working on unit {} of {}: {}, T{}, U{}".format(
-                i, len(container), o_name, parts[-1], ndata.get_unit_no()))
+                i+1, len(container), o_name, parts[-1], ndata.get_unit_no()))
 
             # Setup up identifier information
             note_dict = oDict()
