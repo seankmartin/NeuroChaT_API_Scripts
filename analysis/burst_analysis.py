@@ -402,7 +402,7 @@ def main(args, config):
     out_name = container.add_axona_files_from_dir(
         in_dir, tetrode_list=tetrode_list, recursive=True, re_filter=regex_filter, verbose=False, unit_cutoff=(0, max_units))
     container.setup()
-    if len(container) is 0:
+    if len(container) == 0:
         print("Unable to find any files matching regex {}".format(
             regex_filter))
         exit(-1)
@@ -449,7 +449,7 @@ def setup_logging(in_dir):
 
 
 def print_config(config, msg=""):
-    if msg is not "":
+    if msg != "":
         print(msg)
     """Prints the contents of a config file"""
     config_dict = [{x: tuple(config.items(x))} for x in config.sections()]
@@ -466,7 +466,7 @@ if __name__ == "__main__":
         description='Process modifiable parameters from command line')
     args, unparsed = parser.parse_known_args()
 
-    if len(unparsed) is not 0:
+    if len(unparsed) != 0:
         print("Unrecognised command line argument passed")
         print(unparsed)
         exit(-1)
