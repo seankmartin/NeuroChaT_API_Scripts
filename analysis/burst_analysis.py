@@ -52,7 +52,8 @@ def log_isi(ndata, start=0.0005, stop=10, num_bins=60):
 
 def cell_classification_stats(
         in_dir, container, out_name,
-        should_plot=False, opt_end="", output_spaces=True):
+        should_plot=False, opt_end="", output_spaces=True,
+        good_cells=None):
     """
     Compute a csv of cell stats for each unit in a container
 
@@ -64,6 +65,7 @@ def cell_classification_stats(
     """
     _results = []
     spike_names = container.get_file_dict()["Spike"]
+    overall_count = 0
     for i, ndata in enumerate(container):
         try:
             data_idx, unit_idx = container._index_to_data_pos(i)
@@ -72,8 +74,12 @@ def cell_classification_stats(
             o_name = os.path.join(
                 os.path.dirname(name)[len(in_dir + os.sep):],
                 parts[0])
+            if good_cells is not None:
+                if [name[len(in_dir + os.sep):], ndata.get_unit_no()] not in good_cells:
+                    continue
+            overall_count += 1
             print("Working on unit {} of {}: {}, T{}, U{}".format(
-                i+1, len(container), o_name, parts[-1], ndata.get_unit_no()))
+                i + 1, len(container), o_name, parts[-1], ndata.get_unit_no()))
 
             # Setup up identifier information
             note_dict = oDict()
@@ -93,39 +99,12 @@ def cell_classification_stats(
             # Caculate cell properties
             ndata.wave_property()
             ndata.place()
-            ndata.hd_rate()
-            ndata.grid()
-            ndata.border()
-            ndata.multiple_regression()
             isi = ndata.isi()
             ndata.burst(burst_thresh=6)
-            phase_dist = ndata.phase_dist()
             theta_index = ndata.theta_index()
-            ndata.bandpower_ratio(
-                [5, 11], [1.5, 4], 1.6, relative=True,
-                first_name="Theta", second_name="Delta")
             result = copy(ndata.get_results(
                 spaces_to_underscores=not output_spaces))
             _results.append(result)
-
-            if should_plot:
-                plot_loc = os.path.join(
-                    in_dir, "nc_plots", parts[0] + "_" + parts[-1] + "_" +
-                    str(ndata.get_unit_no()) + "_phase" + opt_end + ".png")
-                make_dir_if_not_exists(plot_loc)
-                fig1, fig2, fig3 = nc_plot.spike_phase(phase_dist)
-                fig2.savefig(plot_loc)
-                plt.close("all")
-
-                if unit_idx == len(container.get_units(data_idx)) - 1:
-                    plot_loc = os.path.join(
-                        in_dir, "nc_plots", parts[0] + "_lfp" + opt_end + ".png")
-                    make_dir_if_not_exists(plot_loc)
-
-                    lfp_spectrum = ndata.spectrum()
-                    fig = nc_plot.lfp_spectrum(lfp_spectrum)
-                    fig.savefig(plot_loc)
-                    plt.close(fig)
 
         except Exception as e:
             print("WARNING: Failed to analyse {} unit {}".format(
@@ -135,6 +114,7 @@ def cell_classification_stats(
 
     # Save the cell statistics
     make_dir_if_not_exists(out_name)
+    print("Analysed {} cells in total".format(overall_count))
     save_dicts_to_csv(out_name, _results)
     _results.clear()
 
@@ -360,6 +340,7 @@ def pca_clustering(
 def main(args, config):
     # Unpack out the cfg file into easier names
     in_dir = config.get("Setup", "in_dir")
+    cells_to_use = config.get("Setup", "cell_csv_location")
     regex_filter = config.get("Setup", "regex_filter")
     regex_filter = None if regex_filter == "None" else regex_filter
     analysis_flags = json.loads(config.get("Setup", "analysis_flags"))
@@ -424,13 +405,21 @@ def main(args, config):
     should_plot = analysis_flags[2]
     if analysis_flags[1]:
         import re
+        if cells_to_use is not None:
+            cell_list = []
+            with open(cells_to_use, "r") as csvfile:
+                reader = csv.reader(csvfile, delimiter=',')
+                for row in reader:
+                    cell_list.append([row[0], int(row[1])])
+        else:
+            cell_list = None
         out_name = remove_extension(out_name) + "csv"
         out_name = re.sub(r"file_list_", r"cell_stats_", out_name)
         print("Computing cell stats to save to {}".format(out_name))
         cell_classification_stats(
             in_dir, container, out_name,
             should_plot=should_plot, opt_end=opt_end,
-            output_spaces=output_spaces)
+            output_spaces=output_spaces, good_cells=cell_list)
 
     # Do PCA based analysis
     if analysis_flags[3]:
