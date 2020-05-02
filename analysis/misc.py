@@ -1,4 +1,5 @@
 import os
+import shutil
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -34,7 +35,8 @@ def get_cells(directory):
     return good_cells
 
 
-def get_bad_same_tetrode(good_dir, bad_dir):
+def get_bad_same_tetrode(good_dir, bad_dir, copy=False):
+    os.makedirs(os.path.join(bad_dir, "consider"), exist_ok=True)
     bad_cells = get_cells(bad_dir)
     good_cells = get_cells(good_dir)
     good_names = [os.path.basename(cell[0]) for cell in good_cells]
@@ -44,11 +46,21 @@ def get_bad_same_tetrode(good_dir, bad_dir):
             if os.path.basename(cell[0]) in good_names:
                 cells_to_keep.append(cell)
                 out.write("{},{}\n".format(*cell))
+                if copy:
+                    parts = os.path.splitext(os.path.basename(cell[0]))
+                    png_name_end = (
+                        parts[0] + "_" + parts[1][1:] + "_" + str(cell[1]) + ".png")
+                    png_name_start = "--".join(
+                        os.path.dirname(cell[0]).split(os.sep))
+                    png_name = png_name_start + "--" + png_name_end
+                    shutil.copy(
+                        os.path.join(bad_dir, png_name),
+                        os.path.join(bad_dir, "consider", png_name))
     return cells_to_keep
 
 
 if __name__ == "__main__":
     # directory = r"D:\ATNx_CA1\final_plots\good"
     directory = r"E:\Downloads\good_excluded\good"
-    directory2 = r"D:\ATNx_CA1\final_plots\bad"
+    directory2 = r"D:\ATNx_CA1\final_plots\bad\consider"
     get_bad_same_tetrode(directory, directory2)
