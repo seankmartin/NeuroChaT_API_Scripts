@@ -54,14 +54,10 @@ def bin_downsample(
             amount = min(amount1, amount2)
             subset = np.nonzero(np.logical_and(
                 pos_locs_x == i, pos_locs_y == j))[0]
-            if len(subset) != amount2:
-                print(i, j)
-                print(pos_hist[1][i], pos_hist[1][i + 1])
-                print(pos_hist[2][j], pos_hist[2][j + 1])
-                print(amount1, amount2, subset)
-                print(np.min(pos_locs_x), np.max(pos_locs_x))
-                print(set_array[subset])
-                exit(-1)
+            if len(subset) > amount2:
+                subset = subset[:amount2]
+            elif len(subset) == 0:
+                continue
             new_sample_idxs = np.random.choice(subset, amount)
             new_samples = set_array[new_sample_idxs]
             new_set[count:count + amount] = new_samples
@@ -154,9 +150,11 @@ def downsample_place(self, ftimes, other_spatial, other_ftimes, **kwargs):
     posX = new_set[:, 0]
 
     tmap, yedges, xedges = histogram2d(posY, posX, yedges, xedges)
+    if tmap.shape != spike_count.shape:
+        print(tmap.shape)
+        print(spike_count.shape)
+        raise ValueError("Time map does not match firing map")
 
-    if tmap.shape[0] != tmap.shape[1] & np.abs(tmap.shape[0] - tmap.shape[1]) <= chop_bound:
-        tmap = chop_edges(tmap, min(tmap.shape), min(tmap.shape))[2]
     tmap /= self.get_sampling_rate()
 
     ybin, xbin = tmap.shape
@@ -322,8 +320,8 @@ if __name__ == "__main__":
     for i in range(50):
         p_down_data = spatial.reverse_downsample(
             spike.get_unit_stamp(), spatial2, spike2.get_unit_stamp())
-        skaggs[i] = spatial.get_results()['Spatial Coherence']
-        spatial._results.clear()
+        skaggs[i] = spatial2.get_results()['Spatial Coherence']
+        spatial2._results.clear()
     print("B_A: ", np.mean(skaggs))
     fig = nc_plot.loc_firing(p_down_data)
     fig.savefig("down_v_3.png")
