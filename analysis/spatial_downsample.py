@@ -17,7 +17,7 @@ def bin_downsample(
         self, ftimes, other_spatial, other_ftimes, final_bins,
         initial_bin_size=30):
     bin_size = initial_bin_size
-    set_array = np.zeros(shape=(len(self._pos_x), 4))
+    set_array = np.zeros(shape=(len(self._pos_x), 4), dtype=np.float64)
     set_array[:, 0] = self._pos_x
     set_array[:, 1] = self._pos_y
     spikes_in_bins = histogram(ftimes, bins=self.get_time())[0]
@@ -54,6 +54,14 @@ def bin_downsample(
             amount = min(amount1, amount2)
             subset = np.nonzero(np.logical_and(
                 pos_locs_x == i, pos_locs_y == j))[0]
+            if len(subset) != amount2:
+                print(i, j)
+                print(pos_hist[1][i], pos_hist[1][i + 1])
+                print(pos_hist[2][j], pos_hist[2][j + 1])
+                print(amount1, amount2, subset)
+                print(np.min(pos_locs_x), np.max(pos_locs_x))
+                print(set_array[subset])
+                exit(-1)
             new_sample_idxs = np.random.choice(subset, amount)
             new_samples = set_array[new_sample_idxs]
             new_set[count:count + amount] = new_samples
@@ -64,6 +72,11 @@ def bin_downsample(
         new_set[:, 1], new_set[:, 0], [final_bins[0], final_bins[1]],
         weights=new_set[:, 2])[0]
     return new_set, spike_count
+
+
+def reverse_downsample(self, ftimes, other_spatial, other_ftimes, **kwargs):
+    return other_spatial.downsample_place(
+        other_ftimes, self, ftimes, **kwargs)
 
 
 def downsample_place(self, ftimes, other_spatial, other_ftimes, **kwargs):
@@ -245,6 +258,7 @@ def downsample_place(self, ftimes, other_spatial, other_ftimes, **kwargs):
 
 NSpatial.bin_downsample = bin_downsample
 NSpatial.downsample_place = downsample_place
+NSpatial.reverse_downsample = reverse_downsample
 
 if __name__ == "__main__":
     spatial = NSpatial()
@@ -262,7 +276,7 @@ if __name__ == "__main__":
     fig = nc_plot.loc_firing(p_data)
     fig.savefig("normal.png")
     # By bonnevie this is likely stable, what about stability?
-    print(spatial.get_results()['Spatial Coherence'])
+    print("A: ", spatial.get_results()['Spatial Coherence'])
     spatial._results.clear()
 
     p_down_data = spatial.downsample_place(
@@ -276,7 +290,7 @@ if __name__ == "__main__":
             spike.get_unit_stamp(), spatial, spike.get_unit_stamp())
         skaggs[i] = spatial.get_results()['Spatial Coherence']
         spatial._results.clear()
-    print(np.mean(skaggs))
+    print("A_A: ", np.mean(skaggs))
 
     spatial2 = NSpatial()
     fname = r"D:\SubRet_recordings_imaging\muscimol_data\CanCSR8_muscimol\05102018\s4_big sq\05102018_CanCSR8_bigsq_10_4_3.txt"
@@ -290,7 +304,7 @@ if __name__ == "__main__":
     spike2.set_unit_no(6)
 
     p_data = spatial2.place(spike.get_unit_stamp())
-    print(spatial2.get_results()['Spatial Skaggs'])
+    print("B: ", spatial2.get_results()['Spatial Coherence'])
     fig = nc_plot.loc_firing(p_data)
     fig.savefig("normal2.png")
 
@@ -300,6 +314,16 @@ if __name__ == "__main__":
             spike.get_unit_stamp(), spatial2, spike2.get_unit_stamp())
         skaggs[i] = spatial.get_results()['Spatial Coherence']
         spatial._results.clear()
-    print(np.mean(skaggs))
+    print("A_B: ", np.mean(skaggs))
     fig = nc_plot.loc_firing(p_down_data)
     fig.savefig("down_v_2.png")
+
+    skaggs = np.zeros(shape=(50))
+    for i in range(50):
+        p_down_data = spatial.reverse_downsample(
+            spike.get_unit_stamp(), spatial2, spike2.get_unit_stamp())
+        skaggs[i] = spatial.get_results()['Spatial Coherence']
+        spatial._results.clear()
+    print("B_A: ", np.mean(skaggs))
+    fig = nc_plot.loc_firing(p_down_data)
+    fig.savefig("down_v_3.png")
