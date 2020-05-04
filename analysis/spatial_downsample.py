@@ -75,6 +75,36 @@ def reverse_downsample(self, ftimes, other_spatial, other_ftimes, **kwargs):
         other_ftimes, self, ftimes, **kwargs)
 
 
+def chop_map(self, chop_edges, ftimes, pixel=3):
+    """This is x_l, x_r, y_t, y_b."""
+    x_l, x_r, y_t, y_b = np.array(chop_edges) * pixel
+    x_r = max(self._pos_x) - x_r
+    y_t = max(self._pos_y) - y_t
+    in_range_x = np.logical_and(self._pos_x >= x_l, self._pos_x <= x_r)
+    in_range_y = np.logical_and(self._pos_y >= y_b, self._pos_y <= y_t)
+
+    spikeLoc = self.get_event_loc(ftimes)[1]
+    spike_idxs = spikeLoc[0]
+    spike_idxs_to_use = []
+
+    sample_spatial_idx = np.where(np.logical_and(in_range_y, in_range_x))
+    for i, val in enumerate(spike_idxs):
+        if not np.any(sample_spatial_idx == val):
+            spike_idxs_to_use.append(i)
+    print(len(ftimes))
+    ftimes = ftimes[np.array(spike_idxs_to_use)]
+    print(len(ftimes))
+
+    self._set_time(self._time[sample_spatial_idx])
+    self._set_pos_x(self._pos_x[sample_spatial_idx] - x_l)
+    self._set_pos_y(self._pos_y[sample_spatial_idx] - y_b)
+    self._set_direction(self._direction[sample_spatial_idx])
+    self._set_speed(self._speed[sample_spatial_idx])
+    self.set_ang_vel(self._ang_vel[sample_spatial_idx])
+
+    return ftimes
+
+
 def downsample_place(self, ftimes, other_spatial, other_ftimes, **kwargs):
     """
     Calculates the two-dimensional firing rate of the unit with respect to
@@ -102,7 +132,6 @@ def downsample_place(self, ftimes, other_spatial, other_ftimes, **kwargs):
     graph_data = {}
     update = kwargs.get('update', True)
     pixel = kwargs.get('pixel', 3)
-    chop_bound = kwargs.get('chop_bound', 5)
     filttype, filtsize = kwargs.get('filter', ['b', 5])
     lim = kwargs.get('range', [0, self.get_duration()])
     brAdjust = kwargs.get('brAdjust', True)
@@ -257,6 +286,7 @@ def downsample_place(self, ftimes, other_spatial, other_ftimes, **kwargs):
 NSpatial.bin_downsample = bin_downsample
 NSpatial.downsample_place = downsample_place
 NSpatial.reverse_downsample = reverse_downsample
+NSpatial.chop_map = chop_map
 
 if __name__ == "__main__":
     spatial = NSpatial()
@@ -273,14 +303,20 @@ if __name__ == "__main__":
     p_data = spatial.place(spike.get_unit_stamp())
     fig = nc_plot.loc_firing(p_data)
     fig.savefig("normal.png")
+
+    ftimes = spatial.chop_map([3, 3, 3, 3], spike.get_unit_stamp())
+    p_data = spatial.place(ftimes)
+    fig = nc_plot.loc_firing(p_data)
+    fig.savefig("normal_chop.png")
     # By bonnevie this is likely stable, what about stability?
     print("A: ", spatial.get_results()['Spatial Coherence'])
     spatial._results.clear()
 
     p_down_data = spatial.downsample_place(
-        spike.get_unit_stamp(), spatial, spike.get_unit_stamp())
+        ftimes, spatial, ftimes)
     fig = nc_plot.loc_firing(p_down_data)
     fig.savefig("down_v_self.png")
+    exit(-1)
 
     skaggs = np.zeros(shape=(50))
     for i in range(50):
