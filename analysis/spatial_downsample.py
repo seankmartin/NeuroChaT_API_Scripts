@@ -15,8 +15,8 @@ import neurochat.nc_plot as nc_plot
 
 def bin_downsample(
         self, ftimes, other_spatial, other_ftimes, final_bins,
-        initial_bin_size=30):
-    bin_size = initial_bin_size
+        sample_bin_amt=[30, 30]):
+    bin_size = sample_bin_amt
     set_array = np.zeros(shape=(len(self._pos_x), 4), dtype=np.float64)
     set_array[:, 0] = self._pos_x
     set_array[:, 1] = self._pos_y
@@ -91,9 +91,7 @@ def chop_map(self, chop_edges, ftimes, pixel=3):
     for i, val in enumerate(spike_idxs):
         if not np.any(sample_spatial_idx == val):
             spike_idxs_to_use.append(i)
-    print(len(ftimes))
     ftimes = ftimes[np.array(spike_idxs_to_use)]
-    print(len(ftimes))
 
     self._set_time(self._time[sample_spatial_idx])
     self._set_pos_x(self._pos_x[sample_spatial_idx] - x_l)
@@ -162,6 +160,8 @@ def downsample_place(self, ftimes, other_spatial, other_ftimes, **kwargs):
 
     xedges = self._xbound
     yedges = self._ybound
+    xedges2 = other_spatial._xbound
+    yedges2 = other_spatial._ybound
 
     spikeLoc = self.get_event_loc(ftimes, **kwargs)[1]
     posX = self._pos_x[np.logical_and(
@@ -173,8 +173,8 @@ def downsample_place(self, ftimes, other_spatial, other_ftimes, **kwargs):
         ftimes, other_spatial, other_ftimes,
         final_bins=[
             np.append(yedges, yedges[-1] + np.mean(np.diff(yedges))),
-            np.append(xedges, xedges[-1] + np.mean(np.diff(xedges)))]
-    )
+            np.append(xedges, xedges[-1] + np.mean(np.diff(xedges)))],
+        sample_bin_amt=[len(xedges2) + 1, len(yedges2) + 1])
     posY = new_set[:, 1]
     posX = new_set[:, 0]
 
@@ -304,11 +304,12 @@ if __name__ == "__main__":
     fig = nc_plot.loc_firing(p_data)
     fig.savefig("normal.png")
 
-    ftimes = spatial.chop_map([3, 3, 3, 3], spike.get_unit_stamp())
-    p_data = spatial.place(ftimes)
-    fig = nc_plot.loc_firing(p_data)
-    fig.savefig("normal_chop.png")
-    # By bonnevie this is likely stable, what about stability?
+    ftimes = spike.get_unit_stamp()
+    # ftimes = spatial.chop_map([3, 3, 3, 3], spike.get_unit_stamp())
+    # p_data = spatial.place(ftimes)
+    # fig = nc_plot.loc_firing(p_data)
+    # fig.savefig("normal_chop.png")
+    # # By bonnevie this is likely stable, what about stability?
     print("A: ", spatial.get_results()['Spatial Coherence'])
     spatial._results.clear()
 
@@ -316,7 +317,6 @@ if __name__ == "__main__":
         ftimes, spatial, ftimes)
     fig = nc_plot.loc_firing(p_down_data)
     fig.savefig("down_v_self.png")
-    exit(-1)
 
     skaggs = np.zeros(shape=(50))
     for i in range(50):
@@ -337,7 +337,7 @@ if __name__ == "__main__":
     spike2.load()
     spike2.set_unit_no(6)
 
-    p_data = spatial2.place(spike.get_unit_stamp())
+    p_data = spatial2.place(spike2.get_unit_stamp())
     print("B: ", spatial2.get_results()['Spatial Coherence'])
     fig = nc_plot.loc_firing(p_data)
     fig.savefig("normal2.png")
@@ -354,8 +354,8 @@ if __name__ == "__main__":
 
     skaggs = np.zeros(shape=(50))
     for i in range(50):
-        p_down_data = spatial.reverse_downsample(
-            spike.get_unit_stamp(), spatial2, spike2.get_unit_stamp())
+        p_down_data = spatial2.downsample_place(
+            spike2.get_unit_stamp(), spatial, spike.get_unit_stamp())
         skaggs[i] = spatial2.get_results()['Spatial Coherence']
         spatial2._results.clear()
     print("B_A: ", np.mean(skaggs))
