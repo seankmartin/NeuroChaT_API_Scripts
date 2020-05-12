@@ -283,12 +283,311 @@ def downsample_place(self, ftimes, other_spatial, other_ftimes, **kwargs):
     return graph_data
 
 
+def loc_auto_corr_down(self, ftimes, other_spatial, other_ftimes, **kwargs):
+    """
+    Calculates the two-dimensional correlation of firing map which is the
+    map of the firing rate of the animal with respect to its location
+
+    Parameters
+    ----------
+    ftimes : ndarray
+        Timestamps of the spiking activity of a unit
+    **kwargs
+        Keyword arguments
+
+    Returns
+    -------
+    dict
+        Graphical data of the analysis
+
+    """
+    graph_data = {}
+
+    minPixel = kwargs.get('minPixel', 20)
+    pixel = kwargs.get('pixel', 3)
+
+    if 'update' in kwargs.keys():
+        del kwargs['update']
+    placeData = self.downsample_place(
+        ftimes, other_spatial, other_ftimes, update=False, **kwargs)
+
+    fmap = placeData['smoothMap']
+    fmap[np.isnan(fmap)] = 0
+    leny, lenx = fmap.shape
+
+    xshift = np.arange(-(lenx - 1), lenx)
+    yshift = np.arange(-(leny - 1), leny)
+
+    corrMap = np.zeros((yshift.size, xshift.size))
+
+    for J, ysh in enumerate(yshift):
+        for I, xsh in enumerate(xshift):
+            if ysh >= 0:
+                map1YInd = np.arange(ysh, leny)
+                map2YInd = np.arange(leny - ysh)
+            elif ysh < 0:
+                map1YInd = np.arange(leny + ysh)
+                map2YInd = np.arange(-ysh, leny)
+
+            if xsh >= 0:
+                map1XInd = np.arange(xsh, lenx)
+                map2XInd = np.arange(lenx - xsh)
+            elif xsh < 0:
+                map1XInd = np.arange(lenx + xsh)
+                map2XInd = np.arange(-xsh, lenx)
+            map1 = fmap[tuple(np.meshgrid(map1YInd, map1XInd))]
+            map2 = fmap[tuple(np.meshgrid(map2YInd, map2XInd))]
+            if map1.size < minPixel:
+                corrMap[J, I] = -1
+            else:
+                corrMap[J, I] = corr_coeff(map1, map2)
+
+    graph_data['corrMap'] = corrMap
+    graph_data['xshift'] = xshift * pixel
+    graph_data['yshift'] = yshift * pixel
+
+    return graph_data
+
+
+def always_grid(self, ftimes, **kwargs):
+    """
+    Analysis of Grid cells characterised by formation of grid-like pattern
+    of high activity in the firing-rate map
+
+    Parameters
+    ----------
+    ftimes : ndarray
+        Timestamps of the spiking activity of a unit
+    **kwargs
+        Keyword arguments
+
+    Returns
+    -------
+    dict
+        Graphical data of the analysis
+
+    """
+
+    _results = oDict()
+    tol = kwargs.get('angtol', 2)
+    binsize = kwargs.get('binsize', 3)
+    bins = np.arange(0, 360, binsize)
+
+    graph_data = self.loc_auto_corr(ftimes, update=False, **kwargs)
+    corrMap = graph_data['corrMap']
+    corrMap[np.isnan(corrMap)] = 0
+    xshift = graph_data['xshift']
+    yshift = graph_data['yshift']
+
+    pixel = np.int(np.diff(xshift).mean())
+
+    ny, nx = corrMap.shape
+    rpeaks = np.zeros(corrMap.shape, dtype=bool)
+    cpeaks = np.zeros(corrMap.shape, dtype=bool)
+    for j in np.arange(ny):
+        rpeaks[j, extrema(corrMap[j, :])[1]] = True
+    for i in np.arange(nx):
+        cpeaks[extrema(corrMap[:, i])[1], i] = True
+    ymax, xmax = find2d(np.logical_and(rpeaks, cpeaks))
+
+    peakDist = np.sqrt((ymax - find(yshift == 0))**2 +
+                       (xmax - find(xshift == 0))**2)
+    sortInd = np.argsort(peakDist)
+    ymax, xmax, peakDist = ymax[sortInd], xmax[sortInd], peakDist[sortInd]
+
+    ymax, xmax, peakDist = (
+        ymax[1:7], xmax[1:7], peakDist[1:7]) if ymax.size >= 7 else ([], [], [])
+    theta = np.arctan2(yshift[ymax], xshift[xmax]) * 180 / np.pi
+    theta[theta < 0] += 360
+    sortInd = np.argsort(theta)
+    ymax, xmax, peakDist, theta = (
+        ymax[sortInd], xmax[sortInd], peakDist[sortInd], theta[sortInd])
+
+    graph_data['ymax'] = yshift[ymax]
+    graph_data['xmax'] = xshift[xmax]
+
+    meanDist = peakDist.mean()
+    X, Y = np.meshgrid(xshift, yshift)
+    distMat = np.sqrt(X**2 + Y**2) / pixel
+
+    _results["First Check"] = (len(ymax) == np.logical_and(
+        peakDist > 0.75 * meanDist, peakDist < 1.25 * meanDist).sum())
+    maskInd = np.logical_and(
+        distMat > 0.5 * meanDist, distMat < 1.5 * meanDist)
+    rotCorr = np.array([corr_coeff(rot_2d(corrMap, theta)[
+                        maskInd], corrMap[maskInd]) for k, theta in enumerate(bins)])
+    ramax, rimax, ramin, rimin = extrema(rotCorr)
+    mThetaPk, mThetaTr = (np.diff(bins[rimax]).mean(), np.diff(
+        bins[rimin]).mean()) if rimax.size and rimin.size else (None, None)
+    graph_data['rimax'] = rimax
+    graph_data['rimin'] = rimin
+    graph_data['anglemax'] = bins[rimax]
+    graph_data['anglemin'] = bins[rimin]
+    graph_data['rotAngle'] = bins
+    graph_data['rotCorr'] = rotCorr
+
+    if mThetaPk is not None and mThetaTr is not None:
+        isGrid = True if 60 - tol < mThetaPk < 60 + \
+            tol and 60 - tol < mThetaTr < 60 + tol else False
+    else:
+        isGrid = False
+
+    meanAlpha = np.diff(theta).mean()
+    psi = theta[np.array([2, 3, 4, 5, 0, 1])] - theta
+    psi[psi < 0] += 360
+    meanPsi = psi.mean()
+
+    _results['Is Grid'] = isGrid and 120 - tol < meanPsi < 120 + \
+        tol and 60 - tol < meanAlpha < 60 + tol
+    _results['Grid Mean Alpha'] = meanAlpha
+    _results['Grid Mean Psi'] = meanPsi
+    _results['Grid Spacing'] = meanDist * pixel
+    # Difference between highest Pearson R at peaks and lowest at troughs
+    _results['Grid Score'] = rotCorr[rimax].max() - \
+        rotCorr[rimin].min()
+    _results['Grid Orientation'] = theta[0]
+
+    self.update_result(_results)
+    return graph_data
+
+
+def grid_down(self, ftimes, other_spatial, other_ftimes, **kwargs):
+    """
+    Analysis of Grid cells characterised by formation of grid-like pattern
+    of high activity in the firing-rate map        
+
+    Parameters
+    ----------
+    ftimes : ndarray
+        Timestamps of the spiking activity of a unit   
+    **kwargs
+        Keyword arguments
+
+    Returns
+    -------
+    dict
+        Graphical data of the analysis
+
+    """
+
+    _results = oDict()
+    tol = kwargs.get('angtol', 2)
+    binsize = kwargs.get('binsize', 3)
+    bins = np.arange(0, 360, binsize)
+
+    graph_data = self.loc_auto_corr_down(
+        ftimes, other_spatial, other_ftimes, update=False, **kwargs)
+    corrMap = graph_data['corrMap']
+    corrMap[np.isnan(corrMap)] = 0
+    xshift = graph_data['xshift']
+    yshift = graph_data['yshift']
+
+    pixel = np.int(np.diff(xshift).mean())
+
+    ny, nx = corrMap.shape
+    rpeaks = np.zeros(corrMap.shape, dtype=bool)
+    cpeaks = np.zeros(corrMap.shape, dtype=bool)
+    for j in np.arange(ny):
+        rpeaks[j, extrema(corrMap[j, :])[1]] = True
+    for i in np.arange(nx):
+        cpeaks[extrema(corrMap[:, i])[1], i] = True
+    ymax, xmax = find2d(np.logical_and(rpeaks, cpeaks))
+
+    peakDist = np.sqrt((ymax - find(yshift == 0))**2 +
+                       (xmax - find(xshift == 0))**2)
+    sortInd = np.argsort(peakDist)
+    ymax, xmax, peakDist = ymax[sortInd], xmax[sortInd], peakDist[sortInd]
+
+    ymax, xmax, peakDist = (
+        ymax[1:7], xmax[1:7], peakDist[1:7]) if ymax.size >= 7 else ([], [], [])
+    theta = np.arctan2(yshift[ymax], xshift[xmax]) * 180 / np.pi
+    theta[theta < 0] += 360
+    sortInd = np.argsort(theta)
+    ymax, xmax, peakDist, theta = (
+        ymax[sortInd], xmax[sortInd], peakDist[sortInd], theta[sortInd])
+
+    graph_data['ymax'] = yshift[ymax]
+    graph_data['xmax'] = xshift[xmax]
+
+    meanDist = peakDist.mean()
+    X, Y = np.meshgrid(xshift, yshift)
+    distMat = np.sqrt(X**2 + Y**2) / pixel
+
+    # if all of them are within tolerance(25%)
+    # TODO check tol
+    maskInd = np.logical_and(
+        distMat > 0.5 * meanDist, distMat < 1.5 * meanDist)
+    rotCorr = np.array([corr_coeff(rot_2d(corrMap, theta)[
+                        maskInd], corrMap[maskInd]) for k, theta in enumerate(bins)])
+    ramax, rimax, ramin, rimin = extrema(rotCorr)
+    mThetaPk, mThetaTr = (np.diff(bins[rimax]).mean(), np.diff(
+        bins[rimin]).mean()) if rimax.size and rimin.size else (None, None)
+    graph_data['rimax'] = rimax
+    graph_data['rimin'] = rimin
+    graph_data['anglemax'] = bins[rimax]
+    graph_data['anglemin'] = bins[rimin]
+    graph_data['rotAngle'] = bins
+    graph_data['rotCorr'] = rotCorr
+
+    if mThetaPk is not None and mThetaTr is not None:
+        isGrid = True if 60 - tol < mThetaPk < 60 + \
+            tol and 60 - tol < mThetaTr < 60 + tol else False
+    else:
+        isGrid = False
+
+    meanAlpha = np.diff(theta).mean()
+    psi = theta[np.array([2, 3, 4, 5, 0, 1])] - theta
+    psi[psi < 0] += 360
+    meanPsi = psi.mean()
+
+    _results["First Check"] = (len(ymax) == np.logical_and(
+        peakDist > 0.75 * meanDist, peakDist < 1.25 * meanDist).sum())
+    _results['Is Grid'] = isGrid and 120 - tol < meanPsi < 120 + \
+        tol and 60 - tol < meanAlpha < 60 + tol
+    _results['Grid Mean Alpha'] = meanAlpha
+    _results['Grid Mean Psi'] = meanPsi
+    _results['Grid Spacing'] = meanDist * pixel
+    # Difference between highest Pearson R at peaks and lowest at troughs
+    _results['Grid Score'] = rotCorr[rimax].max() - \
+        rotCorr[rimin].min()
+    _results['Grid Orientation'] = theta[0]
+
+    self.update_result(_results)
+    return graph_data
+
+
 NSpatial.bin_downsample = bin_downsample
 NSpatial.downsample_place = downsample_place
 NSpatial.reverse_downsample = reverse_downsample
 NSpatial.chop_map = chop_map
+NSpatial.loc_auto_corr_down = loc_auto_corr_down
+NSpatial.grid_down = grid_down
+NSpatial.always_grid = always_grid
+
+
+def random_down(
+        spat1, ftimes1, spat2, ftimes2, keys,
+        num_iters=50):
+    results = {}
+    output_dict = {}
+    for key in keys:
+        results[key] = np.zeros(shape=(num_iters))
+    for i in range(num_iters):
+        p_down_data = spat1.downsample_place(ftimes1, spat2, ftimes2)
+        while p_down_data == -1:
+            p_down_data = spat1.downsample_place(ftimes1, spat2, ftimes2)
+        for key in keys:
+            results[key][i] = spat1.get_results()[key]
+        spat1._results.clear()
+    output_dict = {}
+    for key in keys:
+        output_dict[key] = np.nanmean(results[key])
+    return output_dict, p_down_data
+
 
 if __name__ == "__main__":
+
+    # Set up the recordings
     spatial = NSpatial()
     fname = r"D:\SubRet_recordings_imaging\muscimol_data\CanCSR8_muscimol\05102018\s3_after_smallsq\05102018_CanCSR8_smallsq_10_3_3.txt"
     spatial.set_filename(fname)
@@ -300,32 +599,6 @@ if __name__ == "__main__":
     spike.load()
     spike.set_unit_no(1)
 
-    p_data = spatial.place(spike.get_unit_stamp())
-    fig = nc_plot.loc_firing(p_data)
-    fig.savefig("normal.png")
-
-    ftimes = spike.get_unit_stamp()
-    # ftimes = spatial.chop_map([3, 3, 3, 3], spike.get_unit_stamp())
-    # p_data = spatial.place(ftimes)
-    # fig = nc_plot.loc_firing(p_data)
-    # fig.savefig("normal_chop.png")
-    # # By bonnevie this is likely stable, what about stability?
-    print("A: ", spatial.get_results()['Spatial Coherence'])
-    spatial._results.clear()
-
-    p_down_data = spatial.downsample_place(
-        ftimes, spatial, ftimes)
-    fig = nc_plot.loc_firing(p_down_data)
-    fig.savefig("down_v_self.png")
-
-    skaggs = np.zeros(shape=(50))
-    for i in range(50):
-        p_down_data = spatial.downsample_place(
-            spike.get_unit_stamp(), spatial, spike.get_unit_stamp())
-        skaggs[i] = spatial.get_results()['Spatial Coherence']
-        spatial._results.clear()
-    print("A_A: ", np.mean(skaggs))
-
     spatial2 = NSpatial()
     fname = r"D:\SubRet_recordings_imaging\muscimol_data\CanCSR8_muscimol\05102018\s4_big sq\05102018_CanCSR8_bigsq_10_4_3.txt"
     spatial2.set_filename(fname)
@@ -336,28 +609,61 @@ if __name__ == "__main__":
     spike2.set_filename(fname)
     spike2.load()
     spike2.set_unit_no(6)
+    ftimes = spike.get_unit_stamp()
+    ftimes2 = spike2.get_unit_stamp()
+
+    # Set up the keys
+    keys = ["Spatial Coherence", "Spatial Skaggs", "Spatial Sparsity"]
+
+    # TODO check in Raju thesis why there is tol?
+    print("Grid stuff")
+    spatial._results.clear()
+    spatial.always_grid(ftimes)
+    print(spatial._results)
+    spatial._results.clear()
+
+    spatial.hd_rate(ftimes)
+    print(spatial._results)
+    spatial._results.clear()
+    # ftimes = spatial.chop_map([3, 3, 3, 3], spike.get_unit_stamp())
+    # p_data = spatial.place(ftimes)
+    # fig = nc_plot.loc_firing(p_data)
+    # fig.savefig("normal_chop.png")
+    # # By bonnevie this is likely stable, what about stability?
+
+    p_data = spatial.place(spike.get_unit_stamp())
+    fig = nc_plot.loc_firing(p_data)
+    fig.savefig("normal.png")
+    for key in keys:
+        print("A: {} - {}".format(key, spatial.get_results()[key]))
+    spatial._results.clear()
+
+    p_down_data = spatial.downsample_place(
+        ftimes, spatial, ftimes)
+    fig = nc_plot.loc_firing(p_down_data)
+    fig.savefig("down_v_self.png")
+
+    res, data = random_down(spatial, ftimes, spatial, ftimes, keys)
+    print("A_A: {}".format(res))
 
     p_data = spatial2.place(spike2.get_unit_stamp())
-    print("B: ", spatial2.get_results()['Spatial Coherence'])
+    for key in keys:
+        print("B: ", spatial2.get_results()[key])
     fig = nc_plot.loc_firing(p_data)
     fig.savefig("normal2.png")
 
-    skaggs = np.zeros(shape=(50))
-    for i in range(50):
-        p_down_data = spatial.downsample_place(
-            spike.get_unit_stamp(), spatial2, spike2.get_unit_stamp())
-        skaggs[i] = spatial.get_results()['Spatial Coherence']
-        spatial._results.clear()
-    print("A_B: ", np.mean(skaggs))
+    res, p_down_data = random_down(spatial, ftimes, spatial2, ftimes2, keys)
     fig = nc_plot.loc_firing(p_down_data)
+    print("A_B: {}".format(res))
     fig.savefig("down_v_2.png")
 
-    skaggs = np.zeros(shape=(50))
-    for i in range(50):
-        p_down_data = spatial2.downsample_place(
-            spike2.get_unit_stamp(), spatial, spike.get_unit_stamp())
-        skaggs[i] = spatial2.get_results()['Spatial Coherence']
-        spatial2._results.clear()
-    print("B_A: ", np.mean(skaggs))
+    res, p_down_data = random_down(spatial2, ftimes2, spatial, ftimes, keys)
+    print("B_A: {}".format(res))
     fig = nc_plot.loc_firing(p_down_data)
     fig.savefig("down_v_3.png")
+
+    spatial._results.clear()
+    for i in range(10):
+        spatial.grid_down(ftimes, spatial, ftimes)
+        print(spatial._results)
+        spatial._results.clear()
