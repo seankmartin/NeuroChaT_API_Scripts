@@ -1,4 +1,8 @@
 import os
+import numpy as np
+from api_utils import make_path_if_not_exists
+from collections import OrderedDict
+import operator
 
 
 def time_resolved_check(in_dir, container):
@@ -14,10 +18,9 @@ def time_resolved_check(in_dir, container):
 
     """
     print("Computing time resolved tests")
-    with open(
-            os.path.join(in_dir, "nc_results", "bursttime.csv"), "w") as f:
-        from collections import OrderedDict
-        import operator
+    csv_fname = os.path.join(in_dir, "nc_results", "bursttime.csv")
+    make_path_if_not_exists(csv_fname)
+    with open(csv_fname, "w") as f:
         info = OrderedDict()
         for i in range(container.get_num_data()):
             c_info = container.get_index_info(i)
@@ -69,3 +72,11 @@ def time_resolved_check(in_dir, container):
                     for b in burst_arr:
                         o_str = o_str + "{},".format(b)
                     f.write(o_str[:-1] + "\n")
+
+
+if __name__ == "__main__":
+    from neurochat.nc_datacontainer import NDataContainer
+    in_dir = r"D:\SubRet_recordings_imaging\muscimol_data\CanCSR7_muscimol\2_03082018"
+    ndc = NDataContainer(load_on_fly=True)
+    ndc.add_axona_files_from_dir(in_dir, recursive=True)
+    time_resolved_check(in_dir, ndc)
