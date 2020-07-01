@@ -1,3 +1,15 @@
+"""
+Provides downsampling methods to extend NeuroChaT.
+
+It is very important to note that bin_downsample
+, downsample_place, random_down and chop_map 
+are the only methods that have been properly tested.
+
+Although your own testing is suggested in general,
+particularly the downsampling with grid cells and 
+the autocorrellation downsampling should be tested.
+
+"""
 from collections import OrderedDict as oDict
 
 from neurochat.nc_utils import chop_edges, corr_coeff, extrema,\
@@ -16,7 +28,44 @@ import neurochat.nc_plot as nc_plot
 def bin_downsample(
         self, ftimes, other_spatial, other_ftimes, final_bins,
         sample_bin_amt=[30, 30]):
-    bin_size = sample_bin_amt
+    """
+    Perform spatial downsampling to compare data with different paths.
+
+    This function is designed to be appended to the
+    neurochat.nc_spatial.NSpatial class
+    Like so, NSpatial.bin_downsample = bin_downsample
+
+    Essentially, the spatial occupancy in each bin in sample_bin_amt
+    is matched between self and other spatial,
+    then the firing map is computed on downsampled self with resolution
+    defined by final_bins.
+
+    Parameters
+    ----------
+    ftimes : list or ndarray
+        The firing times of the first cell.
+    other_spatial : NSpatial
+        The spatial object to downsample self to match.
+    other_ftimes : list or ndarray
+        The firing times of the cell in other_spatial.
+    final_bins : (ndarray, ndarray)
+        The edges of the bins for performing a final 2d histogram
+        to get the firing rate map statistics after downsampling.
+    sample_bin_amt : (int, int)
+        The number of bins in the x and y direction
+        to use for downsampling.
+        The spatial occupancy in each of these bins will be matched.
+
+    Returns
+    -------
+    (new_set: ndarray, spike_count: np.histogram2d result)
+        new_set is an ndarray of new spike times and locations after downsampling
+        spike_count is the firing map computed from the downsampled data.
+
+    """
+    # Create an number_of_position_samples * 4 length array
+    # Each row contains:
+    # x position | y position | spikes in this bin | time of sample
     set_array = np.zeros(shape=(len(self._pos_x), 4), dtype=np.float64)
     set_array[:, 0] = self._pos_x
     set_array[:, 1] = self._pos_y
@@ -24,6 +73,11 @@ def bin_downsample(
     set_array[:, 2] = spikes_in_bins
     set_array[:, 3] = self._time
 
+    # Mimics a digitized version of np.histogram2d
+    # So pos_hist[0] is the histogram
+    # pos_locs_x are the xbin co_ordinates of each position sample
+    # pos_locs_y are the ybin co_ordinates of each position sample
+    bin_size = sample_bin_amt
     pos_hist = np.histogram2d(
         set_array[:, 0], set_array[:, 1], bin_size)
     pos_locs_x = np.searchsorted(
@@ -31,58 +85,108 @@ def bin_downsample(
     pos_locs_y = np.searchsorted(
         pos_hist[2][1:], set_array[:, 1], side='left')
 
+    # Same as earlier, but for the other spatial data.
+    # Time and spikes in bin are not need here, so only two columns.
     set_array1 = np.zeros(shape=(len(other_spatial._pos_x), 2))
     set_array1[:, 0] = other_spatial._pos_x
     set_array1[:, 1] = other_spatial._pos_y
-    # spikes_in_bins = histogram(other_ftimes, bins=other_spatial.get_time())[0]
-    # set_array1[:, 2] = spikes_in_bins
-    # set_array1[:, 3] = other_spatial._time
+
+    # A regular 2d histogram
     pos_hist1 = np.histogram2d(
         set_array1[:, 0], set_array1[:, 1], bin_size)
-    # pos_locs_x1 = np.searchsorted(
-    #     pos_hist1[1][1:], set_array1[:, 0], side='left')
-    # pos_locs_y1 = np.searchsorted(
-    #     pos_hist1[2][1:], set_array1[:, 1], side='left')
 
+    # new_set will store information the same as set_array
+    # x position | y position | spikes in this bin | time of sample
+    # but this will be the downsampled data
     new_set = np.zeros(shape=(int(np.sum(pos_hist1[0])), 4))
     count = 0
 
+    # For each bin in sample_bin_amt
     for i in range(pos_hist[0].shape[0]):
         for j in range(pos_hist[0].shape[1]):
+            # Determine the minimum occupancy in this bin
             amount1 = int(pos_hist1[0][i, j])
             amount2 = int(pos_hist[0][i, j])
             amount = min(amount1, amount2)
+
+            
+            # Establish sample indices that occurred in this bin (from set_array)
             subset = np.nonzero(np.logical_and(
                 pos_locs_x == i, pos_locs_y == j))[0]
+            
+            # Some protection against errors
             if len(subset) > amount2:
                 subset = subset[:amount2]
             elif len(subset) == 0:
                 continue
+
+            # Randomly sample (with replacement) "amount" events
             new_sample_idxs = np.random.choice(subset, amount)
             new_samples = set_array[new_sample_idxs]
             new_set[count:count + amount] = new_samples
             count += amount
-    # print(np.histogram2d(
-    #     new_set[:, 0], new_set[:, 1], [pos_hist[1], pos_hist[2]])[0])
+
+    # Another histogram is needed to get the firing map back in final_bins
     spike_count = np.histogram2d(
         new_set[:, 1], new_set[:, 0], [final_bins[0], final_bins[1]],
         weights=new_set[:, 2])[0]
+
     return new_set, spike_count
 
 
 def reverse_downsample(self, ftimes, other_spatial, other_ftimes, **kwargs):
+    """
+    Perform downsample_place the with the spatial data swapped.
+
+    Calls other_spatial.downsample_place(
+        other_ftimes, self, ftimes, **kwargs)
+
+    See Also 
+    --------
+    downsample_place
+
+    """
     return other_spatial.downsample_place(
         other_ftimes, self, ftimes, **kwargs)
 
 
 def chop_map(self, chop_edges, ftimes, pixel=3):
-    """This is x_l, x_r, y_t, y_b."""
+    """
+    Remove part of spatial data that falls outside a boundary.
+    chop_edges indicates how many spatial bins to come in from an edge.
+    Eg. (1, 0, 1, 0)
+    Would remove a column on the left and a column at the top.
+
+    The returned data is no longer at a constant sampling rate.
+    This is useful if some erroneous border information from the 
+    recording system is handing around (e.g. a tracking error)
+
+    Parameters
+    ----------
+    chop_edges : (float, float, float, float)
+        (x left bound, x right bound, y top bound, y bottom bound)
+        This is x_l, x_r, y_t, y_b in the code.
+    ftimes : ndarray
+        The firing times of the unit under consideration.
+    pixel : float
+        The size of the bins to bin spatial data into.
+        chop_edges are multiplied by this.
+
+    Returns
+    -------
+    ndarray
+        The firing times that occur within chop_edges.
+    """
+    # Convert from pixels to spatial units
     x_l, x_r, y_t, y_b = np.array(chop_edges) * pixel
     x_r = max(self._pos_x) - x_r
     y_t = max(self._pos_y) - y_t
+
+    # Find the parts withing the bounds
     in_range_x = np.logical_and(self._pos_x >= x_l, self._pos_x <= x_r)
     in_range_y = np.logical_and(self._pos_y >= y_b, self._pos_y <= y_t)
 
+    # Establish which spikes and spatial samples fell outside the edges.
     spikeLoc = self.get_event_loc(ftimes)[1]
     spike_idxs = spikeLoc[0]
     spike_idxs_to_use = []
@@ -93,6 +197,7 @@ def chop_map(self, chop_edges, ftimes, pixel=3):
             spike_idxs_to_use.append(i)
     ftimes = ftimes[np.array(spike_idxs_to_use)]
 
+    # Save the data back to this object.
     self._set_time(self._time[sample_spatial_idx])
     self._set_pos_x(self._pos_x[sample_spatial_idx] - x_l)
     self._set_pos_y(self._pos_y[sample_spatial_idx] - y_b)
@@ -105,8 +210,13 @@ def chop_map(self, chop_edges, ftimes, pixel=3):
 
 def downsample_place(self, ftimes, other_spatial, other_ftimes, **kwargs):
     """
+    Compute all place cell statistics after downsampling.
+
+    Downsampling is performed by downsample_place.
+
     Calculates the two-dimensional firing rate of the unit with respect to
-    the location of the animal in the environment. This is called Firing map.
+    the location of the animal in the environment. 
+    This is called Firing map.
 
     Specificity indices are measured to assess the quality of location-specific firing of the unit.
 
@@ -117,6 +227,10 @@ def downsample_place(self, ftimes, other_spatial, other_ftimes, **kwargs):
     ----------
     ftimes : ndarray
         Timestamps of the spiking activity of a unit
+    other_spatial : NSpatial
+        The spatial data to downsample to.
+    other_ftimes : list or ndarray
+        The firing times of the cell in other spatial.
     **kwargs
         Keyword arguments
 
@@ -124,8 +238,8 @@ def downsample_place(self, ftimes, other_spatial, other_ftimes, **kwargs):
     -------
     dict
         Graphical data of the analysis
-    """
 
+    """
     _results = oDict()
     graph_data = {}
     update = kwargs.get('update', True)
@@ -141,9 +255,6 @@ def downsample_place(self, ftimes, other_spatial, other_ftimes, **kwargs):
     # only explores a subset of the arena.
     separate_border_data = kwargs.get(
         "separateBorderData", None)
-
-    # xedges = np.arange(0, np.ceil(np.max(self._pos_x)), pixel)
-    # yedges = np.arange(0, np.ceil(np.max(self._pos_y)), pixel)
 
     # Update the border to match the requested pixel size
     if separate_border_data is not None:
@@ -169,6 +280,7 @@ def downsample_place(self, ftimes, other_spatial, other_ftimes, **kwargs):
     posY = self._pos_y[np.logical_and(
         self.get_time() >= lim[0], self.get_time() <= lim[1])]
 
+    # This is the main difference between regular place method.
     new_set, spike_count = self.bin_downsample(
         ftimes, other_spatial, other_ftimes,
         final_bins=[
@@ -214,14 +326,7 @@ def downsample_place(self, ftimes, other_spatial, other_ftimes, **kwargs):
     pmap[tmap == 0] = None
     pfield, largest_group = NSpatial.place_field(
         pmap, thresh, required_neighbours)
-    # if largest_group == 0:
-    #     if smooth_place:
-    #         info = "where the place field was calculated from smoothed data"
-    #     else:
-    #         info = "where the place field was calculated from raw data"
-    #     logging.info(
-    #         "Lack of high firing neighbours to identify place field " +
-    #         info)
+
     centroid = NSpatial.place_field_centroid(pfield, pmap, largest_group)
     # centroid is currently in co-ordinates, convert to pixels
     centroid = centroid * pixel + (pixel * 0.5)
@@ -285,13 +390,19 @@ def downsample_place(self, ftimes, other_spatial, other_ftimes, **kwargs):
 
 def loc_auto_corr_down(self, ftimes, other_spatial, other_ftimes, **kwargs):
     """
+    Calculate auto correlation after downsampling.
+
     Calculates the two-dimensional correlation of firing map which is the
     map of the firing rate of the animal with respect to its location
 
     Parameters
     ----------
-    ftimes : ndarray
+      ftimes : ndarray
         Timestamps of the spiking activity of a unit
+    other_spatial : NSpatial
+        The spatial data to downsample to.
+    other_ftimes : list or ndarray
+        The firing times of the cell in other spatial.
     **kwargs
         Keyword arguments
 
@@ -351,8 +462,12 @@ def loc_auto_corr_down(self, ftimes, other_spatial, other_ftimes, **kwargs):
 
 def always_grid(self, ftimes, **kwargs):
     """
+    This outputs grid cell statistics even if the cell is clearly not grid.
+
+    Recommended to use NeuroChaTs method, this was to test the values
+    in non grid situations.
     Analysis of Grid cells characterised by formation of grid-like pattern
-    of high activity in the firing-rate map
+    of high activity in the firing-rate map.
 
     Parameters
     ----------
@@ -367,7 +482,6 @@ def always_grid(self, ftimes, **kwargs):
         Graphical data of the analysis
 
     """
-
     _results = oDict()
     tol = kwargs.get('angtol', 2)
     binsize = kwargs.get('binsize', 3)
@@ -453,13 +567,19 @@ def always_grid(self, ftimes, **kwargs):
 
 def grid_down(self, ftimes, other_spatial, other_ftimes, **kwargs):
     """
+    Perform grid cell analysis after downsampling.
+
     Analysis of Grid cells characterised by formation of grid-like pattern
     of high activity in the firing-rate map        
 
     Parameters
-    ----------
+    ---------- 
     ftimes : ndarray
-        Timestamps of the spiking activity of a unit   
+        Timestamps of the spiking activity of a unit
+    other_spatial : NSpatial
+        The spatial data to downsample to.
+    other_ftimes : list or ndarray
+        The firing times of the cell in other spatial.
     **kwargs
         Keyword arguments
 
@@ -469,7 +589,6 @@ def grid_down(self, ftimes, other_spatial, other_ftimes, **kwargs):
         Graphical data of the analysis
 
     """
-
     _results = oDict()
     tol = kwargs.get('angtol', 2)
     binsize = kwargs.get('binsize', 3)
@@ -513,8 +632,6 @@ def grid_down(self, ftimes, other_spatial, other_ftimes, **kwargs):
     X, Y = np.meshgrid(xshift, yshift)
     distMat = np.sqrt(X**2 + Y**2) / pixel
 
-    # if all of them are within tolerance(25%)
-    # TODO check tol
     maskInd = np.logical_and(
         distMat > 0.5 * meanDist, distMat < 1.5 * meanDist)
     rotCorr = np.array([corr_coeff(rot_2d(corrMap, theta)[
@@ -556,6 +673,7 @@ def grid_down(self, ftimes, other_spatial, other_ftimes, **kwargs):
     return graph_data
 
 
+# Pass these new methods on to NeuroChaT
 NSpatial.bin_downsample = bin_downsample
 NSpatial.downsample_place = downsample_place
 NSpatial.reverse_downsample = reverse_downsample
@@ -568,6 +686,31 @@ NSpatial.always_grid = always_grid
 def random_down(
         spat1, ftimes1, spat2, ftimes2, keys,
         num_iters=50):
+    """
+    Perform a random down-sampling to get results over many iterations.
+
+    Parameters
+    ----------
+    spat1 : NSpatial
+        Spatial data for the first sample.
+    ftimes1 : ndarray
+        Firing times of the first sample.
+    spat2 : NSpatial
+        Spatial data for the second sample.
+    ftimes2 : ndarray
+        Firing times of the second sample.
+    keys : list
+        Which keys to save from the results.
+    num_iters : int, optional
+        Defaults to 50, the number of iterations.
+
+    Returns
+    -------
+    (results : dict, graph_data : dict)
+        results are the numerical results
+        graph_data is the full plot data of the last group analysed.
+
+    """
     results = {}
     output_dict = {}
     for key in keys:
@@ -586,6 +729,7 @@ def random_down(
 
 
 if __name__ == "__main__":
+    """Some examples for testing the code on for correctness."""
 
     # Set up the recordings
     spatial = NSpatial()
@@ -615,7 +759,6 @@ if __name__ == "__main__":
     # Set up the keys
     keys = ["Spatial Coherence", "Spatial Skaggs", "Spatial Sparsity"]
 
-    # TODO check in Raju thesis why there is tol?
     print("Grid stuff")
     spatial._results.clear()
     spatial.always_grid(ftimes)
@@ -629,7 +772,7 @@ if __name__ == "__main__":
     # p_data = spatial.place(ftimes)
     # fig = nc_plot.loc_firing(p_data)
     # fig.savefig("normal_chop.png")
-    # # By bonnevie this is likely stable, what about stability?
+    # By bonnevie this is likely stable, what about stability?
 
     p_data = spatial.place(spike.get_unit_stamp())
     fig = nc_plot.loc_firing(p_data)
