@@ -405,7 +405,7 @@ def main(args, config):
     should_plot = analysis_flags[2]
     if analysis_flags[1]:
         import re
-        if cells_to_use is not None:
+        if (cells_to_use is not None) and (cells_to_use != "None"):
             cell_list = []
             with open(cells_to_use, "r") as csvfile:
                 reader = csv.reader(csvfile, delimiter=',')
