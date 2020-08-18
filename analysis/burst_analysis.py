@@ -25,6 +25,7 @@ from neurochat.nc_containeranalysis import place_cell_summary
 from neurochat.nc_utils import make_dir_if_not_exists, log_exception, oDict
 from neurochat.nc_utils import remove_extension
 import neurochat.nc_plot as nc_plot
+from interneuron import cell_type
 
 from api_utils import save_dicts_to_csv
 
@@ -66,7 +67,7 @@ def cell_classification_stats(
     _results = []
     spike_names = container.get_file_dict()["Spike"]
     overall_count = 0
-    for i, ndata in enumerate(container):
+    for i in range(len(container)):
         try:
             data_idx, unit_idx = container._index_to_data_pos(i)
             name = spike_names[data_idx][0]
@@ -74,15 +75,8 @@ def cell_classification_stats(
             o_name = os.path.join(
                 os.path.dirname(name)[len(in_dir + os.sep):],
                 parts[0])
-            if good_cells is not None:
-                if [name[len(in_dir + os.sep):], ndata.get_unit_no()] not in good_cells:
-                    continue
-            overall_count += 1
-            print("Working on unit {} of {}: {}, T{}, U{}".format(
-                i + 1, len(container), o_name, parts[-1], ndata.get_unit_no()))
-
-            # Setup up identifier information
             note_dict = oDict()
+            # Setup up identifier information
             dir_t = os.path.dirname(name)
             note_dict["Index"] = i
             note_dict["FullDir"] = dir_t
@@ -93,6 +87,17 @@ def cell_classification_stats(
                 note_dict["RelDir"] = ""
             note_dict["Recording"] = parts[0]
             note_dict["Tetrode"] = int(parts[-1])
+            if good_cells is not None:
+                check = [
+                    os.path.normpath(name[len(in_dir + os.sep):]),
+                    container.get_units(data_idx)[unit_idx]]
+                if check not in good_cells:
+                    continue
+            ndata = container[i]
+            overall_count += 1
+            print("Working on unit {} of {}: {}, T{}, U{}".format(
+                i + 1, len(container), o_name, parts[-1], ndata.get_unit_no()))
+
             note_dict["Unit"] = ndata.get_unit_no()
             ndata.update_results(note_dict)
 
@@ -102,15 +107,17 @@ def cell_classification_stats(
             isi = ndata.isi()
             ndata.burst(burst_thresh=6)
             theta_index = ndata.theta_index()
+            ndata._results["IsPyramidal"] = cell_type(ndata)
             result = copy(ndata.get_results(
                 spaces_to_underscores=not output_spaces))
             _results.append(result)
 
         except Exception as e:
+            to_out = note_dict.get("Unit", "NA")
             print("WARNING: Failed to analyse {} unit {}".format(
-                os.path.basename(name), note_dict["Unit"]))
+                os.path.basename(name), to_out))
             log_exception(e, "Failed on {} unit {}".format(
-                os.path.basename(name), note_dict["Unit"]))
+                os.path.basename(name), to_out))
 
     # Save the cell statistics
     make_dir_if_not_exists(out_name)
@@ -410,7 +417,8 @@ def main(args, config):
             with open(cells_to_use, "r") as csvfile:
                 reader = csv.reader(csvfile, delimiter=',')
                 for row in reader:
-                    cell_list.append([row[0], int(row[1])])
+                    cell_list.append([
+                        os.path.normpath(row[0].replace('\\', '/')), int(row[1])])
         else:
             cell_list = None
         out_name = remove_extension(out_name) + "csv"
