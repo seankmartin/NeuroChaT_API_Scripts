@@ -5,6 +5,7 @@ from copy import deepcopy
 
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 from api_utils import make_dir_if_not_exists
 from neurochat.nc_lfp import NLfp
@@ -53,11 +54,12 @@ def plot_long_lfp(
 
 
 def plot_lfp(
-        out_dir, lfp_odict, segment_length=150, in_range=None, dpi=50):
+        out_dir, lfp_odict, segment_length=150, 
+        in_range=None, dpi=50, start_name="", ext="png"):
     """
     Create a number of figures to display lfp signal on multiple channels.
 
-    There will be one figure for each split of thetotal length 
+    There will be one figure for each split of the total length 
     into segment_length, and a row for each value in lfp_odict.
 
     It is assumed that the input lfps are prefiltered if filtering is required.
@@ -69,6 +71,8 @@ def plot_lfp(
         in_range (tuple(int, int), optional): Time(s) of LFP to plot overall.
             Defaults to None.
         dpi (int, optional): Resulting plot dpi.
+        start_name (str, optional): Start name of plot output.
+        ext (str, optional): extension of plot output.
 
     Returns:
         None
@@ -85,7 +89,7 @@ def plot_lfp(
         a = np.round(split, 2)
         b = np.round(min(split + segment_length, in_range[1]), 2)
         out_name = os.path.join(
-            out_dir, "{}s_to_{}s.png".format(a, b))
+            out_dir, "{}_{}s_to_{}s.{}".format(start_name, a, b, ext))
         for i, (key, lfp) in enumerate(lfp_odict.items()):
             convert = lfp.get_sampling_rate()
             c_start, c_end = math.floor(a * convert), math.floor(b * convert)
@@ -136,6 +140,18 @@ def plot_sample_of_signal(
         lfp_to_plot, out_name, nsplits=1, ylim=(-0.325, 0.325), figsize=(20, 2),
         offset=lfp.get_sampling_rate() * offseta,
         nsamples=lfp.get_sampling_rate() * length)
+
+
+def plot_lfp_sig(lfp_samples, out_name, sr=250, dpi=400):
+    fig, ax = plt.subplots(figsize=(10, 6))
+    x_samples = np.array([i for i in range(lfp_samples.shape[0])]) / sr
+    x_samples = x_samples - np.min(x_samples)
+    ax.plot(x_samples, lfp_samples, c="k")
+    ax.set_ylabel("LFP (mV)")
+    ax.set_xlabel("Time (s)")
+
+    sns.despine(offset=10, trim=True)
+    fig.savefig(out_name, dpi=dpi)
 
 
 def plot_coherence(f, Cxy, name=None, dpi=100, tick_freq=10):
