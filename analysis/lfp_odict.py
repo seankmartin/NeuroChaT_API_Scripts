@@ -5,6 +5,7 @@ from copy import deepcopy
 
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.signal import iirnotch, filtfilt
 
 from neurochat.nc_lfp import NLfp
 from neurochat.nc_utils import butter_filter
@@ -54,8 +55,8 @@ class LfpODict:
             return self.lfp_filt_odict.get(key, None)
         return self.lfp_filt_odict
 
-    def get_signals(self, keys):
-        """Return a list of NLFP objects at the given keys."""
+    def get_filtered_signals(self, keys):
+        """Return a list of filtered NLFP objects at the given keys."""
         out_list = []
         for key in keys:
             to_add = self.lfp_filt_odict.get(key, None)
@@ -88,6 +89,31 @@ class LfpODict:
                 lower, upper, 'bandpass')
             filt_lfp._set_samples(filtered_lfp_samples)
             lfp_filt_odict[key] = filt_lfp
+        return lfp_filt_odict
+
+    def notch_filter(self, channels, freq_to_remove=50.0, quality=30.0):
+        """
+        Filter all the signals in the stored lfp dict.
+
+        Args:
+            freq_to_remove (float):
+                The frequency to filter out by notch.
+                Default 50 Hz for DC
+            quality (float):
+                The quality of the filter.
+
+        Returns:
+            OrderedDict of filtered singals.
+
+        """
+        lfp_filt_odict = OrderedDict()
+        for key, filt_lfp in self.lfp_filt_odict.items():
+            if key in channels:
+                fs = filt_lfp.get_sampling_rate()
+                b, a = iirnotch(freq_to_remove, quality, fs=fs)
+                filtered_lfp_samples = filtfilt(b, a, filt_lfp.get_samples())
+                filt_lfp._set_samples(filtered_lfp_samples)
+                self.lfp_filt_odict[key] = filt_lfp
         return lfp_filt_odict
 
     def _init_lfp(self, filename, channels="all"):
