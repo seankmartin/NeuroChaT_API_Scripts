@@ -79,31 +79,66 @@ def main(cfg, args, **kwargs):
 
     if analysis_flags[2]:
         res_dict = OrderedDict()
-        make_dir_if_not_exists(os.path.join(in_dir, plot_dir, "coherence"))
+        theta_delta_dict = OrderedDict()
+        theta_delta_dict["Name"] = [
+            "delta_peak_D",
+            "theta_peak_D",
+            "delta_avg_D",
+            "theta_avg_D",
+            "delta_peak_L1",
+            "theta_peak_L1",
+            "delta_avg_L1",
+            "theta_avg_L1",
+            "delta_peak_L2",
+            "theta_peak_L2",
+            "delta_avg_L2",
+            "theta_avg_L2",
+        ]
+        make_dir_if_not_exists(os.path.join(out_dir, plot_dir, "coherence"))
         for fname in filenames:
             for key, val in channels.items():
                 if key in fname:
                     chan_list = val
                     break
             else:
-                raise ValueError("No key in {}, keys {}".format(
-                    fname, channels.keys()))
-            out_basename = "{}_{}.png".format(
-                os.path.basename(fname), chan_list)
-            out_name = os.path.join(
-                in_dir, plot_dir, "coherence", out_basename)
+                raise ValueError("No key in {}, keys {}".format(fname, channels.keys()))
+            if "green" in fname:
+                continue
+
+            out_basename = "{}_{}.png".format(os.path.basename(fname), chan_list)
+            out_name = os.path.join(out_dir, plot_dir, "coherence", out_basename)
             print("Saving coherence to {}".format(out_name))
             lfp_odict = LfpODict(fname, chan_list, (False, 0, 80))
+
             f, Cxy = calc_coherence(
-                lfp_odict.get_filt_signal(0),
-                lfp_odict.get_filt_signal(1))
-            if not "Name" in list(res_dict.keys()):
+                lfp_odict.get_filt_signal(0), lfp_odict.get_filt_signal(1)
+            )
+            if "Name" not in res_dict:
                 res_dict["Name"] = f
             res_dict[fname] = Cxy
             plot_coherence(f, Cxy, out_name, dpi=200)
             close("all")
+
+            fname_without_end = "-".join(fname.split("-")[:-1])
+            if fname_without_end not in theta_delta_dict:
+                theta_delta_dict[fname_without_end] = []
+
+            delta_bit = np.nonzero(np.logical_and(f >= 1.5, f <= 4.0))
+            theta_bit = np.nonzero(np.logical_and(f >= 5.0, f <= 11.0))
+            v1 = np.max(Cxy[delta_bit])
+            v2 = np.max(Cxy[theta_bit])
+            v3 = np.mean(Cxy[delta_bit])
+            v4 = np.mean(Cxy[theta_bit])
+            for val in [v1, v2, v3, v4]:
+                theta_delta_dict[fname_without_end].append(val)
         save_mixed_dict_to_csv(
-            res_dict, os.path.join(in_dir, plot_dir), "Coherence.csv")
+            res_dict, os.path.join(out_dir, plot_dir), f"Coherence_{res_name}.csv"
+        )
+        save_mixed_dict_to_csv(
+            theta_delta_dict,
+            os.path.join(out_dir, plot_dir),
+            f"Coherence_avg_{res_name}.csv",
+        )
 
     if analysis_flags[3]:
         import neurochat.nc_plot as nc_plot
