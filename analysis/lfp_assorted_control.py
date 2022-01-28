@@ -43,6 +43,7 @@ def main(path1, path2, r, seg_len, channel_to_plot):
                 )
             else:
                 out_name = output_dir / (name + "." + plot_ext)
+                print(f"Saving to {out_name}")
                 plot_lfp_sig(sig.get_samples()[r[0] * sr : r[1] * sr], out_name)
 
 
@@ -50,7 +51,7 @@ if __name__ == "__main__":
     main_path = Path("D:\Emanuela Rizzello data")
     lfp_l2_ctrl_path = main_path / "to 09-2019" / "09072019-bt" / "09072019-bt-L2"
     lfp_l2_dser_path = main_path / "to 09-2019" / "10072019-bt" / "10072019-bt-L2"
-    r = [20, 21]  # 1 seconds long LFP
+    r = [20, 25]  # 1 seconds long LFP
     seg_len = 1  # 2 second long segemnts
     channel_to_plot = 1  # Or select a number after checking
     main(lfp_l2_ctrl_path, lfp_l2_dser_path, r, seg_len, channel_to_plot)
@@ -61,7 +62,7 @@ if __name__ == "__main__":
     lfp_l2_dser_path = (
         main_path / "to 09-2019" / "30072019-bt" / "30072019-bt-last30min-LFP-DSER"
     )
-    r = [20, 40]  # 20 seconds long LFP
-    seg_len = 20  # 20 second long segemnts
-    channel_to_plot = None  # Use None to check the channels
+    r = [20, 21]  # 20 seconds long LFP
+    seg_len = 10  # 20 second long segemnts
+    channel_to_plot = 1  # Use None to check the channels
     main(lfp_l2_ctrl_path, lfp_l2_dser_path, r, seg_len, channel_to_plot)
